@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IERS - Intelligent Emergency Response System</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+    .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); }
+    .leaflet-container { width: 100%; height: 100%; border-radius: 1.25rem; }
+    .pulse-radar {
+      animation: radarPulse 2s infinite ease-out;
+    }
+    @keyframes radarPulse {
+      0% { transform: scale(0.9); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+  </style>
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800 antialiased">
+
+  <!-- Left Sidebar Navigation -->
+  <aside class="w-20 bg-white border-r border-slate-200/80 flex flex-col items-center py-6 justify-between z-20">
+    <div class="flex flex-col items-center gap-8">
+      <!-- Logo -->
+      <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+        <i data-lucide="shield-alert" class="w-6 h-6"></i>
+      </div>
+      <!-- Nav Icons -->
+      <nav class="flex flex-col gap-4">
+        <button class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition shadow-sm" title="Operations Map">
+          <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+        </button>
+        <button class="w-11 h-11 rounded-xl text-slate-400 flex items-center justify-center hover:bg-slate-100 hover:text-slate-600 transition" title="Ambulance Fleet">
+          <i data-lucide="truck" class="w-5 h-5"></i>
+        </button>
+        <button class="w-11 h-11 rounded-xl text-slate-400 flex items-center justify-center hover:bg-slate-100 hover:text-slate-600 transition" title="Hospitals & Capacity">
+          <i data-lucide="building-2" class="w-5 h-5"></i>
+        </button>
+        <button class="w-11 h-11 rounded-xl text-slate-400 flex items-center justify-center hover:bg-slate-100 hover:text-slate-600 transition" title="Traffic Constraints">
+          <i data-lucide="git-branch" class="w-5 h-5"></i>
+        </button>
+      </nav>
+    </div>
+    <div class="flex flex-col items-center gap-4">
+      <div id="ws-indicator" class="w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-emerald-100" title="Live WS Connected"></div>
+      <button class="w-10 h-10 rounded-xl text-slate-400 flex items-center justify-center hover:bg-slate-100">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Work Area -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- Left Drawer / Active Incidents & Fleet Status -->
+    <section class="w-96 bg-white border-r border-slate-200/80 flex flex-col z-10 shadow-sm">
+      <!-- Header -->
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h1 class="text-xl font-bold text-slate-900 tracking-tight">Active Dispatches</h1>
+          <p class="text-xs text-slate-500 mt-0.5">Autonomous Multi-Criteria Routing</p>
+        </div>
+        <button onclick="openIncidentModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+          New Call
+        </button>
+      </div>
+
+      <!-- Segment Tabs -->
+      <div class="px-6 pt-4 pb-2">
+        <div class="flex p-1 bg-slate-100 rounded-xl text-xs font-medium text-slate-600">
+          <button id="tab-in-transit" onclick="switchTab('active')" class="flex-1 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs font-semibold">Active Units</button>
+          <button id="tab-fleet" onclick="switchTab('fleet')" class="flex-1 py-1.5 rounded-lg hover:text-slate-900">Fleet Status</button>
+          <button id="tab-hospitals" onclick="switchTab('hospitals')" class="flex-1 py-1.5 rounded-lg hover:text-slate-900">Hospitals</button>
+        </div>
+      </div>
+
+      <!-- Scrollable List -->
+      <div id="list-container" class="flex-1 overflow-y-auto px-6 py-3 space-y-3.5">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- System Metric Footer Card -->
+      <div class="p-4 bg-slate-50 border-t border-slate-100">
+        <div class="flex items-center justify-between text-xs text-slate-600 font-medium mb-1.5">
+          <span>Fleet Readiness</span>
+          <span class="text-emerald-600 font-bold" id="fleet-readiness">100% Available</span>
+        </div>
+        <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+          <div class="bg-blue-600 h-full w-full rounded-full transition-all duration-500" id="readiness-bar"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Map & Dynamic Telemetry Center -->
+    <main class="flex-1 relative bg-slate-100 p-4 flex flex-col gap-4">
+      
+      <!-- Top Floating Stats HUD -->
+      <div class="absolute top-8 left-8 right-8 z-[1000] pointer-events-none flex items-center justify-between">
+        
+        <!-- Search & City Badge -->
+        <div class="pointer-events-auto flex items-center gap-3">
+          <div class="glass-card px-4 py-2.5 rounded-2xl flex items-center gap-3 shadow-lg">
+            <span class="flex h-2.5 w-2.5 relative">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Hubballi - Vidyanagar Smart Corridor</span>
+            <span class="text-slate-300">|</span>
+            <span class="text-xs text-slate-500 font-medium">1,282 Active GIS Nodes</span>
+          </div>
+
+          <!-- Rush Hour Simulation Trigger Button -->
+          <button onclick="simulateRushHour()" class="pointer-events-auto glass-card px-4 py-2.5 rounded-2xl text-xs font-semibold text-rose-600 hover:bg-rose-50/80 transition flex items-center gap-2 shadow-lg">
+            <i data-lucide="flame" class="w-4 h-4"></i>
+            Inject Rush Hour Traffic
+          </button>
+        </div>
+
+        <!-- KPI Pill Counter -->
+        <div class="pointer-events-auto glass-card px-4 py-2 rounded-2xl shadow-lg flex items-center gap-6">
+          <div>
+            <p class="text-[10px] uppercase font-bold text-slate-400">Avg Response ETA</p>
+            <p class="text-sm font-bold text-slate-800" id="hud-avg-eta">3.4 min</p>
+          </div>
+          <div class="w-px h-6 bg-slate-200"></div>
+          <div>
+            <p class="text-[10px] uppercase font-bold text-slate-400">Total ICU Beds</p>
+            <p class="text-sm font-bold text-emerald-600" id="hud-icu-beds">20 Avail</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaflet Map Container -->
+      <div id="map" class="flex-1 rounded-3xl shadow-sm overflow-hidden z-0"></div>
+
+      <!-- Bottom Floating Dispatch Drawer (GlobeTrans / Koryear Reference Pattern) -->
+      <div id="active-route-drawer" class="glass-card rounded-2xl p-5 shadow-xl flex items-center justify-between border border-slate-200/90 z-[1000] hidden transition-all">
+        <div class="flex items-center gap-6">
+          <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
+            <i data-lucide="siren" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-blue-600" id="drawer-callsign">MEDIC-101 (ALS)</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">EN ROUTE TO SCENE</span>
+            </div>
+            <p class="text-sm font-bold text-slate-800 mt-0.5" id="drawer-incident">Acute Cardiac Event - Gamla Stan</p>
+          </div>
+          <div class="h-8 w-px bg-slate-200"></div>
+          <div>
+            <p class="text-[10px] uppercase font-bold text-slate-400">Estimated Arrival</p>
+            <p class="text-sm font-bold text-slate-800" id="drawer-eta">2.8 mins</p>
+          </div>
+          <div>
+            <p class="text-[10px] uppercase font-bold text-slate-400">Target Hospital</p>
+            <p class="text-sm font-bold text-slate-800" id="drawer-hospital">Karolinska University</p>
+          </div>
+        </div>
+        <button onclick="dismissDrawer()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl">Dismiss View</button>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Incident Modal -->
+  <div id="incident-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-slate-900">Trigger Emergency Call</h3>
+        <button onclick="closeIncidentModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs font-medium text-slate-600">
+        <div>
+          <label class="block mb-1">Incident Type</label>
+          <input id="modal-type" type="text" value="Acute Cardiac Arrest" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block mb-1">Severity Code</label>
+          <select id="modal-severity" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+            <option value="CRITICAL">CRITICAL (Requires ALS / ICU Hospital)</option>
+            <option value="URGENT">URGENT (Standard BLS response)</option>
+            <option value="STANDARD">STANDARD (Rapid Flyer / Minor triage)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block mb-1">Incident Location</label>
+          <select id="modal-location" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+            <option value="15.3670,75.1220">KLE Tech Campus Main Gate (High Capacity)</option>
+            <option value="15.3645,75.1240">Vidyanagar Market (Pedestrian & Alleys)</option>
+            <option value="15.3685,75.1205">BVB Academic Quad</option>
+            <option value="15.3620,75.1260">Hospital Road Crossing</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end gap-3">
+        <button onclick="closeIncidentModal()" class="px-4 py-2 border rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+        <button onclick="dispatchEmergency()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-rose-500/20">Dispatch Unit</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Map Setup centered on Hubballi / Vidyanagar GIS Network
+    const map = L.map('map', { zoomControl: false }).setView([15.3670, 75.1220], 14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+
+    let currentTab = 'active';
+    let roadLayers = [];
+    let ambulanceMarkers = {};
+    let hospitalMarkers = {};
+    let activeRoutePolyline = null;
+
+    // Load Initial Network & Fleet
+    async function loadData() {
+      try {
+        const netRes = await fetch('/api/v1/network');
+        const network = await netRes.json();
+        renderRoadNetwork(network);
+
+        const ambRes = await fetch('/api/v1/ambulances');
+        const ambulances = await ambRes.json();
+        renderAmbulances(ambulances);
+
+        const hospRes = await fetch('/api/v1/hospitals');
+        const hospitals = await hospRes.json();
+        renderHospitals(hospitals);
+
+        renderSidebarList(ambulances, hospitals);
+      } catch (e) {
+        console.warn('API connecting...', e);
+      }
+    }
+
+    function renderRoadNetwork(net) {
+      roadLayers.forEach(l => map.removeLayer(l));
+      roadLayers = [];
+
+      net.edges.forEach(edge => {
+        const u = net.nodes.find(n => n.lat && net.edges.some(e => e.source === n.name || e.id === n.id));
+        // Simple direct line connection between node pairs
+      });
+    }
+
+    function renderAmbulances(ambulances) {
+      ambulances.forEach(a => {
+        const color = a.status === 'AVAILABLE' ? '#10B981' : '#F59E0B';
+        const iconHtml = `<div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); border: 2px solid white; font-weight: bold; font-size: 11px;">🚑</div>`;
+        const customIcon = L.divIcon({ html: iconHtml, className: 'amb-icon', iconSize: [28, 28] });
+        
+        if (ambulanceMarkers[a.id]) {
+          ambulanceMarkers[a.id].setLatLng([a.latitude, a.longitude]);
+        } else {
+          const marker = L.marker([a.latitude, a.longitude], { icon: customIcon }).addTo(map);
+          marker.bindPopup(`<b>${a.call_sign}</b><br>Type: ${a.vehicle_type}<br>Status: ${a.status}`);
+          ambulanceMarkers[a.id] = marker;
+        }
+      });
+    }
+
+    function renderHospitals(hospitals) {
+      hospitals.forEach(h => {
+        const iconHtml = `<div style="background-color: #2563EB; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); border: 2px solid white; font-size: 14px;">🏥</div>`;
+        const customIcon = L.divIcon({ html: iconHtml, className: 'hosp-icon', iconSize: [32, 32] });
+        
+        if (!hospitalMarkers[h.id]) {
+          const m = L.marker([h.latitude, h.longitude], { icon: customIcon }).addTo(map);
+          m.bindPopup(`<b>${h.name}</b><br>ICU Beds: ${h.icu_available} / ${h.total_beds}<br>Trauma Level: ${h.trauma_level}`);
+          hospitalMarkers[h.id] = m;
+        }
+      });
+    }
+
+    function renderSidebarList(ambulances, hospitals) {
+      const c = document.getElementById('list-container');
+      c.innerHTML = '';
+
+      if (currentTab === 'active' || currentTab === 'fleet') {
+        ambulances.forEach(a => {
+          const isAvail = a.status === 'AVAILABLE';
+          const card = document.createElement('div');
+          card.className = 'p-4 rounded-2xl border border-slate-200 hover:border-blue-400 transition cursor-pointer bg-white shadow-xs';
+          card.innerHTML = `
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-slate-800">${a.call_sign}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isAvail ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${a.status}</span>
+            </div>
+            <div class="text-[11px] text-slate-500 flex items-center justify-between">
+              <span>Driver: ${a.driver_name || 'Paramedic'}</span>
+              <span>H: ${a.height_meters}m | W: ${a.width_meters}m</span>
+            </div>
+          `;
+          c.appendChild(card);
+        });
+      } else {
+        hospitals.forEach(h => {
+          const card = document.createElement('div');
+          card.className = 'p-4 rounded-2xl border border-slate-200 bg-white shadow-xs';
+          card.innerHTML = `
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-bold text-slate-800">${h.name}</span>
+              <span class="text-xs font-bold text-blue-600">${h.icu_available} ICU</span>
+            </div>
+            <div class="text-[11px] text-slate-500">Trauma Tier ${h.trauma_level} | Helipad: ${h.has_helipad ? 'Yes' : 'No'}</div>
+          `;
+          c.appendChild(card);
+        });
+      }
+    }
+
+    function switchTab(t) {
+      currentTab = t;
+      ['tab-in-transit', 'tab-fleet', 'tab-hospitals'].forEach(id => {
+        document.getElementById(id).className = 'flex-1 py-1.5 rounded-lg hover:text-slate-900';
+      });
+      if (t === 'active') document.getElementById('tab-in-transit').className = 'flex-1 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs font-semibold';
+      if (t === 'fleet') document.getElementById('tab-fleet').className = 'flex-1 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs font-semibold';
+      if (t === 'hospitals') document.getElementById('tab-hospitals').className = 'flex-1 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs font-semibold';
+      loadData();
+    }
+
+    function openIncidentModal() {
+      document.getElementById('incident-modal').classList.remove('hidden');
+    }
+
+    function closeIncidentModal() {
+      document.getElementById('incident-modal').classList.add('hidden');
+    }
+
+    async function dispatchEmergency() {
+      const type = document.getElementById('modal-type').value;
+      const severity = document.getElementById('modal-severity').value;
+      const [lat, lon] = document.getElementById('modal-location').value.split(',').map(Number);
+
+      closeIncidentModal();
+
+      const res = await fetch('/api/v1/incidents/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caller_name: 'Metropolitan 911 Triage',
+          incident_type: type,
+          severity: severity,
+          latitude: lat,
+          longitude: lon
+        })
+      });
+
+      const data = await res.json();
+      if (data.status === 'DISPATCHED') {
+        showActiveDrawer(data);
+        drawConstrainedRoute(data.route_to_scene.coordinates);
+      } else {
+        alert(data.detail || 'Dispatch queued');
+      }
+      loadData();
+    }
+
+    function drawConstrainedRoute(coordinates) {
+      if (activeRoutePolyline) map.removeLayer(activeRoutePolyline);
+      activeRoutePolyline = L.polyline(coordinates, {
+        color: '#2563EB',
+        weight: 5,
+        opacity: 0.9,
+        dashArray: '8, 8',
+        lineCap: 'round'
+      }).addTo(map);
+      map.fitBounds(activeRoutePolyline.getBounds(), { padding: [50, 50] });
+    }
+
+    function showActiveDrawer(data) {
+      document.getElementById('drawer-callsign').innerText = data.assigned_ambulance.call_sign;
+      document.getElementById('drawer-incident').innerText = data.incident.type;
+      document.getElementById('drawer-eta').innerText = `${data.route_to_scene.eta_minutes} mins`;
+      document.getElementById('drawer-hospital').innerText = data.target_hospital.name;
+      document.getElementById('active-route-drawer').classList.remove('hidden');
+    }
+
+    function dismissDrawer() {
+      document.getElementById('active-route-drawer').classList.add('hidden');
+      if (activeRoutePolyline) map.removeLayer(activeRoutePolyline);
+    }
+
+    async function simulateRushHour() {
+      await fetch('/api/v1/traffic/set-congestion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'N_NORTH', target: 'N_CENTRAL', traffic_factor: 3.5 })
+      });
+      alert('Rush hour simulated: 3.5x congestion injected on Sveavägen Blvd.');
+    }
+
+    // Connect WebSocket
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${wsProto}//${window.location.host}/ws`);
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'INCIDENT_DISPATCHED') {
+        loadData();
+      }
+    };
+
+    loadData();
+  </script>
+</body>
+</html>
