@@ -260,9 +260,32 @@
       roadLayers.forEach(l => map.removeLayer(l));
       roadLayers = [];
 
-      net.edges.forEach(edge => {
-        const u = net.nodes.find(n => n.lat && net.edges.some(e => e.source === n.name || e.id === n.id));
-        // Simple direct line connection between node pairs
+      if (!net.road_segments) return;
+
+      net.road_segments.forEach(seg => {
+        let color = '#94A3B8'; // default slate-400
+        let weight = 2.5;
+        let opacity = 0.55;
+
+        if (seg.is_emergency_lane) {
+          color = '#10B981'; // green corridor
+          weight = 4;
+          opacity = 0.9;
+        } else if (seg.traffic_factor >= 2.5) {
+          color = '#EF4444'; // congested red
+          weight = 3.5;
+          opacity = 0.85;
+        }
+
+        const line = L.polyline(seg.coords, {
+          color: color,
+          weight: weight,
+          opacity: opacity,
+          lineJoin: 'round'
+        }).addTo(map);
+
+        line.bindPopup(`<b>${seg.name}</b><br>Traffic Factor: ${seg.traffic_factor}x<br>Corridor: ${seg.is_emergency_lane ? 'Active Green Corridor' : 'Standard'}`);
+        roadLayers.push(line);
       });
     }
 
@@ -406,12 +429,14 @@
     }
 
     async function simulateRushHour() {
+      // Pick active main corridor segments to inject congestion
       await fetch('/api/v1/traffic/set-congestion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'N_NORTH', target: 'N_CENTRAL', traffic_factor: 3.5 })
+        body: JSON.stringify({ source: 'NODE_567', target: 'NODE_473', traffic_factor: 3.8 })
       });
-      alert('Rush hour simulated: 3.5x congestion injected on Sveavägen Blvd.');
+      alert('Rush hour simulated: 3.8x peak congestion injected along Vidyanagar campus corridor.');
+      loadData();
     }
 
     // Connect WebSocket

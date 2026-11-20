@@ -92,9 +92,24 @@ def root():
 
 @app.get("/api/v1/network")
 def get_network():
+    # Return formatted road network with direct coordinates for effortless UI map overlay
+    edge_geometries = []
+    for edge in routing_engine.edges_data.values():
+        u = routing_engine.nodes_data.get(edge["source"])
+        v = routing_engine.nodes_data.get(edge["target"])
+        if u and v:
+            edge_geometries.append({
+                "id": edge["id"],
+                "name": edge["road_name"],
+                "traffic_factor": edge.get("traffic_factor", 1.0),
+                "is_emergency_lane": edge.get("is_emergency_lane", False),
+                "coords": [[u["lat"], u["lon"]], [v["lat"], v["lon"]]]
+            })
+
     return {
-        "nodes": list(routing_engine.nodes_data.values()),
-        "edges": list(routing_engine.edges_data.values())
+        "nodes_count": len(routing_engine.nodes_data),
+        "edges_count": len(routing_engine.edges_data),
+        "road_segments": edge_geometries
     }
 
 @app.get("/api/v1/hospitals")
