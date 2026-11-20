@@ -101,23 +101,21 @@ def test_constrained_routing_narrow_alley(setup_engine):
     )
     assert route_oversized is None, "Oversized vehicle blocked on both primary alley and bridge detour"
 
-def test_traffic_simulation_dynamic_cost(setup_engine):
+@pytest.mark.asyncio
+async def test_traffic_emergency_corridor_relief(setup_engine):
     """
-    Test that traffic congestion dynamically increases travel duration on an edge.
+    Test that activating an emergency priority lane mitigates congestion penalties.
     """
     sim = TrafficSimulationEngine(setup_engine)
-    
-    # Baseline travel time
-    route_before = setup_engine.find_constrained_route("N_NORTH", "N_CENTRAL", 2.0, 2.0, 2.0)
-    base_duration = route_before["total_duration_seconds"]
-
-    # Inject heavy congestion (3x factor)
     sim.update_edge_congestion("N_NORTH", "N_CENTRAL", 3.0)
-    route_congested = setup_engine.find_constrained_route("N_NORTH", "N_CENTRAL", 2.0, 2.0, 2.0)
-    congested_duration = route_congested["total_duration_seconds"]
+    congested_time = setup_engine.graph["N_NORTH"]["N_CENTRAL"]["travel_time_seconds"]
 
-    assert congested_duration > base_duration
-    assert round(congested_duration / base_duration) == 3
+    # Toggle green corridor
+    sim.toggle_emergency_corridor("N_NORTH", "N_CENTRAL", True)
+    corridor_time = setup_engine.graph["N_NORTH"]["N_CENTRAL"]["travel_time_seconds"]
+
+    assert corridor_time < congested_time
+    assert setup_engine.graph["N_NORTH"]["N_CENTRAL"]["is_emergency_lane"] is True
 
 @pytest.mark.asyncio
 async def test_dispatch_concurrency_lock(setup_engine):

@@ -1,6 +1,7 @@
 import os
 import asyncio
 import json
+from datetime import datetime
 from typing import List
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -270,6 +271,59 @@ async def set_traffic(payload: dict):
         "traffic_factor": factor
     })
     return {"status": "updated", "edge": f"{u}->{v}", "traffic_factor": factor}
+
+@app.post("/api/v1/traffic/toggle-emergency-corridor")
+async def toggle_emergency_corridor(payload: dict):
+    u = payload.get("source")
+    v = payload.get("target")
+    active = bool(payload.get("active", True))
+    traffic_sim.toggle_emergency_corridor(u, v, active)
+
+    await ws_manager.broadcast({
+        "type": "EMERGENCY_CORRIDOR_UPDATE",
+        "source": u,
+        "target": v,
+        "is_active": active
+    })
+    return {"status": "success", "corridor": f"{u}->{v}", "active": active}
+
+@app.post("/api/v1/incidents/resolve")
+async def resolve_incident(payload: dict, db: AsyncSession = Depends(get_db)):
+    inc_id = payload.get("incident_id")
+    result = await db.execute(select(Incident).where(Incident.id == inc_id))
+    inc = result.scalar_one_or_none()
+    if not inc:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    inc.status = IncidentStatus.RESOLVED
+    inc.resolved_at = datetime.utcnow()
+
+    # Free the assigned ambulance back to AVAILABLE
+    if inc.assigned_ambulance_id:
+        amb_res = await db.execute(select(Ambulance).where(Ambulance.id == inc.assigned_ambulance_id))
+        amb = amb_res.scalar_one_or_none()
+        if amb:
+            amb.status = AmbulanceStatus.AVAILABLE
+            db.add(amb)
+
+    # Release hospital ICU bed
+    if inc.target_hospital_id:
+        hosp_res = await db.execute(select(Hospital).where(Hospital.id == inc.target_hospital_id))
+        hosp = hosp_res.scalar_one_or_none()
+        if hosp:
+            hosp.icu_available = min(hosp.total_beds, hosp.icu_available + 1)
+            db.add(hosp)
+
+    db.add(inc)
+    await db.commit()
+
+    await ws_manager.broadcast({
+        "type": "INCIDENT_RESOLVED",
+        "incident_id": inc_id,
+        "ambulance_id": inc.assigned_ambulance_id
+    })
+
+    return {"status": "RESOLVED", "incident_id": inc_id}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
