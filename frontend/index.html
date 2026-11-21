@@ -12,6 +12,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Three.js for 3D Ambulance Inspection -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -559,8 +562,8 @@
     let dashMap = null, fullMap = null, routeMap = null, citMap = null;
     let fullBasemapLayer = null, bboxRoadsLayer = null, activeRouteCoords = [], animTimer = null;
     let layers = {
-      dash: { hospitals: L.layerGroup(), ambulances: L.layerGroup(), incidents: L.layerGroup() },
-      full: { hospitals: L.layerGroup(), ambulances: L.layerGroup(), incidents: L.layerGroup(), roads: {} },
+      dash: { hospitals: L.markerClusterGroup({ maxClusterRadius: 45 }), ambulances: L.markerClusterGroup({ maxClusterRadius: 35 }), incidents: L.layerGroup() },
+      full: { hospitals: L.markerClusterGroup({ maxClusterRadius: 45 }), ambulances: L.markerClusterGroup({ maxClusterRadius: 35 }), incidents: L.layerGroup(), roads: {} },
       route: L.layerGroup(),
       cit: L.layerGroup(),
     };
