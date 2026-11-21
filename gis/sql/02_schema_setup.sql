@@ -1,6 +1,8 @@
 -- ============================================================================
 -- 02_schema_setup.sql
--- IERS — Table schema inside iers_db.iers schema
+-- IERS — Full Schema Definition inside iers_db.iers schema
+-- Combines PostGIS geometry columns with real-time operational telematics
+-- Target: iers-postgis (port 5434) / iers_db
 -- ============================================================================
 SET search_path TO iers, public;
 
@@ -10,6 +12,7 @@ CREATE TABLE IF NOT EXISTS iers.road_network_nodes (
     name            TEXT,
     latitude        DOUBLE PRECISION NOT NULL,
     longitude       DOUBLE PRECISION NOT NULL,
+    is_intersection BOOLEAN DEFAULT TRUE,
     geom            GEOMETRY(Point, 4326)
 );
 
@@ -41,12 +44,13 @@ CREATE TABLE IF NOT EXISTS iers.road_network_edges (
     pgr_id                  SERIAL UNIQUE
 );
 
--- Hospitals
+-- Hospitals (with ICU capacity and trauma tiering)
 CREATE TABLE IF NOT EXISTS iers.hospitals (
     hospital_id     TEXT PRIMARY KEY,
     name            TEXT NOT NULL,
     latitude        DOUBLE PRECISION NOT NULL,
     longitude       DOUBLE PRECISION NOT NULL,
+    nearest_node_id TEXT,
     total_beds      INTEGER DEFAULT 0,
     icu_available   INTEGER DEFAULT 0,
     trauma_level    INTEGER DEFAULT 2,
@@ -54,28 +58,44 @@ CREATE TABLE IF NOT EXISTS iers.hospitals (
     geom            GEOMETRY(Point, 4326)
 );
 
--- Ambulances
+-- Ambulances (with physical dimensions for clearance routing)
 CREATE TABLE IF NOT EXISTS iers.ambulances (
-    ambulance_id    TEXT PRIMARY KEY,
-    call_sign       TEXT,
-    vehicle_type    TEXT,
-    latitude        DOUBLE PRECISION,
-    longitude       DOUBLE PRECISION,
-    status          TEXT DEFAULT 'AVAILABLE',
-    current_node_id TEXT,
-    geom            GEOMETRY(Point, 4326)
+    ambulance_id            TEXT PRIMARY KEY,
+    call_sign               TEXT NOT NULL UNIQUE,
+    vehicle_type            TEXT NOT NULL,
+    status                  TEXT DEFAULT 'AVAILABLE',
+    height_meters           DOUBLE PRECISION DEFAULT 2.4,
+    weight_tons             DOUBLE PRECISION DEFAULT 3.5,
+    width_meters            DOUBLE PRECISION DEFAULT 2.2,
+    latitude                DOUBLE PRECISION NOT NULL,
+    longitude               DOUBLE PRECISION NOT NULL,
+    current_node_id         TEXT,
+    assigned_hospital_id    TEXT,
+    driver_name             TEXT DEFAULT 'Paramedic Crew',
+    fuel_percent            DOUBLE PRECISION DEFAULT 100.0,
+    updated_at              TIMESTAMPTZ DEFAULT NOW(),
+    geom                    GEOMETRY(Point, 4326)
 );
 
--- Incidents
+-- Incidents (with triage severity and dispatch tracking)
 CREATE TABLE IF NOT EXISTS iers.incidents (
-    incident_id     TEXT PRIMARY KEY,
-    incident_type   TEXT,
-    severity        TEXT,
-    latitude        DOUBLE PRECISION,
-    longitude       DOUBLE PRECISION,
-    status          TEXT DEFAULT 'OPEN',
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    geom            GEOMETRY(Point, 4326)
+    incident_id             TEXT PRIMARY KEY,
+    caller_name             TEXT DEFAULT 'Emergency Caller',
+    caller_phone            TEXT DEFAULT '911 / 112',
+    incident_type           TEXT,
+    severity                TEXT NOT NULL,
+    status                  TEXT DEFAULT 'REPORTED',
+    latitude                DOUBLE PRECISION NOT NULL,
+    longitude               DOUBLE PRECISION NOT NULL,
+    nearest_node_id         TEXT,
+    assigned_ambulance_id   TEXT,
+    target_hospital_id      TEXT,
+    reported_at             TIMESTAMPTZ DEFAULT NOW(),
+    created_at              TIMESTAMPTZ DEFAULT NOW(),
+    dispatched_at           TIMESTAMPTZ,
+    resolved_at             TIMESTAMPTZ,
+    notes                   TEXT,
+    geom                    GEOMETRY(Point, 4326)
 );
 
 -- Vertices map for topology

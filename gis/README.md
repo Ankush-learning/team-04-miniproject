@@ -1,27 +1,30 @@
 # Intelligent Emergency Response System (IERS) — GIS & PostGIS Layer
 
-This documentation outlines the spatial database architecture, PostGIS + pgRouting integration, SQL analysis scripts, and QGIS demonstration setup for academic presentation and evaluation.
+This documentation outlines the spatial database architecture, PostGIS integration, SQL analysis scripts, and QGIS demonstration setup for academic presentation and university professor evaluation.
 
 ---
 
-## 1. System Architecture
+## 1. System Architecture & Independent Container Isolation
 
-The IERS GIS subsystem is structured into three layers:
+The IERS GIS subsystem is completely decoupled from any other project (including GeoPilot):
 
 ```
 ┌────────────────────────────────────────────────────────┐
 │           QGIS 3.44+ & SaaS Operations Web UI          │
-│   (Carto / Voyager, Dynamic Polylines, Layer Controls)  │
+│   (Carto Dark Matter, Real-Time Polylines, Layers)     │
 └──────────────────────────┬─────────────────────────────┘
-                           │ GeoJSON / REST / WebSocket / QGIS Provider
+                           │ GeoJSON / REST / WebSocket / QGIS PostGIS Provider
 ┌──────────────────────────▼─────────────────────────────┐
-│               FastAPI Spatial Backend                  │
-│  (RoutingEngine, Concurrency Lock, Traffic Simulator)  │
+│          FastAPI Spatial Backend (Port 8000)           │
+│  (SQLAlchemy AsyncPG, RoutingEngine, Dispatch Lock)    │
 └──────────────────────────┬─────────────────────────────┘
-                           │ SQL / PostGIS / pgRouting
+                           │ AsyncPG Pool (search_path = iers, public)
 ┌──────────────────────────▼─────────────────────────────┐
-│          PostgreSQL 18 + PostGIS + pgRouting           │
-│  (1,282 Nodes, 2,267 Segments, GiST Indexes, Dijkstra) │
+│       IERS Dedicated Container: iers-postgis           │
+│  (PostgreSQL 17.5 + PostGIS 3.5.2, Host Port: 5434)    │
+│  Database: iers_db | User: iers_user | Schema: iers    │
+│  Volume: iers_postgis_data (Zero coupling to GeoPilot) │
+│  (1,282 Nodes, 2,267 Segments, 6 GiST Indexes)        │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -29,70 +32,66 @@ The IERS GIS subsystem is structured into three layers:
 
 ## 2. Spatial Schema & Geometry Specification
 
-- **Spatial Reference System (SRID)**: `EPSG:4326` (WGS 84 coordinate system).
+- **Host Port**: `5434` (mapped to container port `5432` to avoid clashes with default `5432` or GeoPilot `5433`).
+- **Database**: `iers_db`
+- **Schema**: `iers`
+- **User**: `iers_user`
+- **Spatial Reference System (SRID)**: `EPSG:4326` (WGS 84).
 - **Network Dimensions**:
-  - Vertices (`emergency.road_network_nodes`): 1,282 unique topological intersections.
-  - Edges (`emergency.road_network_edges`): 2,267 road segments with clearance parameters (`max_height_meters`, `max_weight_tons`, `width_meters`).
-- **Dynamic Cost Model**:
-  $$\text{Cost (seconds)} = \frac{\text{Distance (m)}}{\text{Speed Limit (m/s)} \div \text{Effective Traffic}}$$
-  - Emergency Green Corridors reduce traffic delay penalties by **$60\%$**.
+  - Intersections (`iers.road_network_nodes`): **1,282** topological intersections ($100\%$ valid geometry).
+  - Segments (`iers.road_network_edges`): **2,267** road edges with physical clearance constraints (`max_height_meters`, `max_weight_tons`, `width_meters`).
+  - Total road length: **67.21 km** (Average edge length: $29.65\text{ m}$).
+  - Bounding Box: `POLYGON((75.100067 15.351769, 75.132646 15.390631))` (Hubballi-Dharwad metropolitan campus corridor).
 
 ---
 
 ## 3. SQL Pipeline Execution Guide
 
-Execute the modular SQL scripts located in `gis/sql/` in sequence:
+The modular SQL scripts located in `gis/sql/` execute against `iers_db`:
 
-```bash
-# 1. Database & Extension Initialization
-psql -U postgres -d emergency_db -f gis/sql/01_database_setup.sql
-
-# 2. Schema DDL & Geometric Constraints
-psql -U postgres -d emergency_db -f gis/sql/02_schema_setup.sql
-
-# 3. Baseline Asset Population (Hospitals & Fleet)
-psql -U postgres -d emergency_db -f gis/sql/03_road_network.sql
-
-# 4. Topology Generation & pgRouting Vertex Indexing
-psql -U postgres -d emergency_db -f gis/sql/04_topology_generation.sql
-
-# 5. Spatial GiST & B-Tree Indexes
-psql -U postgres -d emergency_db -f gis/sql/05_spatial_indexes.sql
-
-# 6. Spatial Proximity & Coverage Buffer Functions
-psql -U postgres -d emergency_db -f gis/sql/06_network_analysis.sql
-
-# 7. Constrained Dijkstra Routing (Physical Clearance)
-psql -U postgres -d emergency_db -f gis/sql/07_emergency_routing.sql
-
-# 8. Data Integrity & Validation Audit
-psql -U postgres -d emergency_db -f gis/sql/08_validation.sql
+```powershell
+# Execute against the dedicated IERS container:
+Get-Content gis/sql/01_database_setup.sql    | docker exec -i iers-postgis psql -U iers_user -d iers_db
+Get-Content gis/sql/02_schema_setup.sql      | docker exec -i iers-postgis psql -U iers_user -d iers_db
+Get-Content gis/sql/03_road_network.sql      | docker exec -i iers-postgis psql -U iers_user -d iers_db
+Get-Content gis/sql/04_topology_generation.sql| docker exec -i iers-postgis psql -U iers_user -d iers_db
+Get-Content gis/sql/05_spatial_indexes.sql   | docker exec -i iers-postgis psql -U iers_user -d iers_db
+Get-Content gis/sql/06_network_analysis.sql  | docker exec -i iers-postgis psql -U iers_user -d iers_db
+Get-Content gis/sql/07_emergency_routing.sql | docker exec -i iers-postgis psql -U iers_user -d iers_db
+Get-Content gis/sql/08_validation.sql        | docker exec -i iers-postgis psql -U iers_user -d iers_db
 ```
 
 ---
 
-## 4. Live Professor Demonstration Sequence
+## 4. QGIS 3.44+ Demonstration Setup
 
-Run `gis/sql/live_professor_demo.sql` directly:
+The QGIS project is pre-configured and ready to load:
+- Project Archive: `gis/qgis/Intelligent_Emergency_Response.qgz`
+- XML Project File: `gis/qgis/Intelligent_Emergency_Response.qgs`
 
-```bash
-psql -U postgres -d emergency_db -f gis/sql/live_professor_demo.sql
-```
+### Layers Configured in Project:
+1. **Hospital 500m Service Buffer**: PostGIS view `iers.v_hospital_coverage_500m` (polygon overlay with translucent dashed perimeter).
+2. **Road Network Edges**: PostGIS table `iers.road_network_edges` (2,267 segments, categorized by priority emergency corridor vs. standard arterial).
+3. **Road Network Intersections**: PostGIS table `iers.road_network_nodes` (1,282 nodes).
+4. **Hospitals & Trauma Hubs**: PostGIS table `iers.hospitals` (red medical cross symbology).
+5. **Emergency Fleet Units**: PostGIS table `iers.ambulances` (categorized by ALS, BLS, and Rapid Flyer).
+6. **Campus Boundary**: `gis/data/kle_campus.gpkg` (geographic spatial context).
 
-### Demonstration Steps:
-1. **Extension Capabilities**: Confirms active PostGIS and pgRouting versions.
-2. **Network Scale**: Reports exact node and segment counts.
-3. **Sub-Millisecond KNN Proximity**: Executes `ST_Distance` using `<->` spatial KNN index operator.
-4. **Physical Clearance Validation**: Runs constrained routing for ALS ambulance (`height=3.2m`, `width=2.6m`), confirming rejection of undersized alleys and low bridges.
-5. **Emergency Green Corridor**: Demonstrates travel-time reduction upon priority lane activation.
+### Direct QGIS Connection Parameters:
+- **Host**: `localhost`
+- **Port**: `5434`
+- **Database**: `iers_db`
+- **User**: `iers_user`
+- **Password**: `iers_dev_local`
+- **Schema**: `iers`
+- **SSL Mode**: `disable`
 
 ---
 
-## 5. QGIS Project Setup (`gis/qgis/`)
+## 5. Live FastAPI Endpoints
 
-1. Open **QGIS** (`C:\Program Files\QGIS 3.44.15\bin\qgis-ltr-bin.exe`).
-2. Open `gis/qgis/Intelligent_Emergency_Response.qgz`.
-3. Pre-configured layers include:
-   - **Road Network**: Categorized by highway class (`road_network_style.qml`).
-   - **Campus Boundaries**: Translucent polygon overlay (`kle_campus.gpkg`).
-   - **Emergency Route Polyline**: High-contrast blue corridor with ambient glow (`emergency_route_style.qml`).
+- `GET /api/v1/system/database-info` — Real-time database connection diagnostics proving active PostGIS database (`sqlite_in_use: false`).
+- `GET /api/v1/hospitals` — Returns hospital assets with ICU capacity and PostGIS geometry.
+- `GET /api/v1/ambulances` — Returns emergency response fleet with clearance specs.
+- `POST /api/v1/routing/calculate` — Computes vehicle clearance routing cross-checked with PostGIS `iers.find_shortest_path`.
+- `POST /api/v1/incidents/create` — Atomic multi-criteria dispatch persisted in PostGIS.
