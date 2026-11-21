@@ -488,6 +488,27 @@ async def toggle_corridor(payload: dict, db: AsyncSession = Depends(get_db), _: 
     return {"emergency_corridor_active": active}
 
 
+@app.post("/api/v1/simulation/start")
+async def api_start_simulation(payload: dict = {}, _: Dict[str, Any] = Depends(require_roles("DISPATCHER"))):
+    from app.services.live_simulator import start_simulation
+    return await start_simulation(
+        max_concurrent=int(payload.get("max_concurrent", 4)),
+        spawn_interval_s=int(payload.get("spawn_interval_s", 8)),
+    )
+
+
+@app.post("/api/v1/simulation/stop")
+async def api_stop_simulation(_: Dict[str, Any] = Depends(require_roles("DISPATCHER"))):
+    from app.services.live_simulator import stop_simulation
+    return await stop_simulation()
+
+
+@app.get("/api/v1/simulation/status")
+async def api_simulation_status():
+    from app.services.live_simulator import get_simulation_status
+    return get_simulation_status()
+
+
 @app.post("/api/v1/traffic/road-closure")
 async def toggle_road_closure(payload: dict, db: AsyncSession = Depends(get_db), _: Dict[str, Any] = Depends(require_roles("DISPATCHER"))):
     road_id = int(payload["road_id"])

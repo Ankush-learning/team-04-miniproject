@@ -262,7 +262,12 @@
           <h2 id="page-title" class="!text-[26px] !font-semibold !leading-[1.3] tracking-tight">IERS</h2>
           <span id="sim-banner" class="hidden text-caption font-mono px-2.5 py-1 rounded-full bg-[#B3A1F8]/25 font-semibold">SIMULATED TRAFFIC</span>
         </div>
-        <div id="header-actions" class="flex items-center gap-2"></div>
+        <div id="header-actions" class="flex items-center gap-2">
+          <button id="btn-live-sim" onclick="toggleLiveSimulation()" class="hidden px-3.5 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] hover:bg-[#1C1D21] hover:text-[#B8F432] text-xs font-semibold transition flex items-center gap-2">
+            <span id="live-sim-dot" class="w-2 h-2 rounded-full bg-[#6E737D]"></span>
+            <span id="live-sim-label">Auto-Sim: OFF</span>
+          </button>
+        </div>
       </header>
 
       <main class="flex-1 p-6 space-y-6">
@@ -878,7 +883,7 @@
     // =========================================================================
     function initDashMap() {
       if (!dashMap) {
-        dashMap = L.map('dash-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.405, 75.065], 12);
+        dashMap = L.map('dash-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.358, 75.125], 13);
         qgisTileLayer().addTo(dashMap);
         addLocalityLabels(dashMap);
         layers.dash.hospitals.addTo(dashMap);
@@ -890,7 +895,7 @@
 
     function initFullMap() {
       if (!fullMap) {
-        fullMap = L.map('full-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.405, 75.065], 12);
+        fullMap = L.map('full-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.358, 75.125], 13);
         fullBasemapLayer = qgisTileLayer().addTo(fullMap);
         addLocalityLabels(fullMap);
         layers.full.hospitals.addTo(fullMap);
@@ -909,7 +914,7 @@
 
     function initRouteMap() {
       if (!routeMap) {
-        routeMap = L.map('route-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.405, 75.065], 12);
+        routeMap = L.map('route-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.358, 75.125], 13);
         qgisTileLayer().addTo(routeMap);
         addLocalityLabels(routeMap);
         layers.route.addTo(routeMap);
@@ -1681,9 +1686,105 @@
       }, e => alert(e.message));
     }
 
+    // =========================================================================
+    // LIVE OPERATIONS SIMULATOR + WEBSOCKET REAL-TIME MAP SYNC
+    // =========================================================================
+    let liveSimRunning = false;
+    let liveWS = null;
+    let liveWsRefreshTimer = null;
+    const liveSimRouteLines = {};
+
+    async function syncLiveSimButton() {
+      const btn = document.getElementById('btn-live-sim');
+      if (!btn) return;
+      if (!currentUser || currentUser.role !== 'DISPATCHER') {
+        btn.classList.add('hidden');
+        return;
+      }
+      btn.classList.remove('hidden');
+      try {
+        const st = await apiFetch('/api/v1/simulation/status');
+        liveSimRunning = !!st.running;
+        const dot = document.getElementById('live-sim-dot');
+        const lbl = document.getElementById('live-sim-label');
+        if (liveSimRunning) {
+          btn.className = 'px-3.5 py-2 rounded-xl border border-[#1C1D21] bg-[#1C1D21] text-[#B8F432] text-xs font-semibold transition flex items-center gap-2';
+          dot.className = 'w-2 h-2 rounded-full bg-[#B8F432] animate-pulse';
+          lbl.textContent = `Auto-Sim: LIVE (${st.active_missions} active · ${st.completed_count} done)`;
+        } else {
+          btn.className = 'px-3.5 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] hover:bg-[#1C1D21] hover:text-[#B8F432] text-xs font-semibold transition flex items-center gap-2';
+          dot.className = 'w-2 h-2 rounded-full bg-[#6E737D]';
+          lbl.textContent = 'Auto-Sim: OFF';
+        }
+      } catch (e) {}
+    }
+
+    async function toggleLiveSimulation() {
+      try {
+        if (liveSimRunning) {
+          await apiFetch('/api/v1/simulation/stop', { method: 'POST' });
+        } else {
+          await apiFetch('/api/v1/simulation/start', { method: 'POST', body: JSON.stringify({ max_concurrent: 4, spawn_interval_s: 8 }) });
+        }
+        await syncLiveSimButton();
+      } catch (e) { alert(e.message); }
+    }
+
+    function drawLiveSimRoute(incId, coords, leg) {
+      if (!coords || !coords.length) return;
+      const latlngs = coords.map(c => [c[1], c[0]]);
+      const color = leg === 'LEG_2' ? '#B3A1F8' : '#1C1D21';
+      [dashMap, fullMap].forEach((m, idx) => {
+        if (!m) return;
+        const key = `${incId}_${idx}`;
+        if (liveSimRouteLines[key]) m.removeLayer(liveSimRouteLines[key]);
+        liveSimRouteLines[key] = L.polyline(latlngs, { color, weight: 4, opacity: 0.85, dashArray: leg === 'LEG_2' ? '8,6' : null }).addTo(m);
+      });
+    }
+
+    function clearLiveSimRoute(incId) {
+      [dashMap, fullMap].forEach((m, idx) => {
+        const key = `${incId}_${idx}`;
+        if (m && liveSimRouteLines[key]) { m.removeLayer(liveSimRouteLines[key]); delete liveSimRouteLines[key]; }
+      });
+    }
+
+    function connectLiveWS() {
+      if (liveWS && liveWS.readyState <= 1) return;
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      liveWS = new WebSocket(`${proto}//${location.host}/ws`);
+      liveWS.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.route_coords && msg.incident_id) {
+            drawLiveSimRoute(msg.incident_id, msg.route_coords, msg.leg || 'LEG_1');
+          }
+          if (msg.type === 'INCIDENT_COMPLETED' && msg.incident_id) {
+            clearLiveSimRoute(msg.incident_id);
+          }
+          if (currentUser && currentUser.role === 'DISPATCHER') {
+            if (liveWsRefreshTimer) clearTimeout(liveWsRefreshTimer);
+            liveWsRefreshTimer = setTimeout(() => {
+              if (typeof loadDispatcherData === 'function') loadDispatcherData();
+              syncLiveSimButton();
+            }, 650);
+          }
+        } catch (e) {}
+      };
+      liveWS.onclose = () => setTimeout(connectLiveWS, 3000);
+    }
+
     if (authToken && currentUser && ROLE_MENUS[currentUser.role]) {
       enterPortal();
+      syncLiveSimButton();
+      connectLiveWS();
     }
+    const _origEnterPortal = enterPortal;
+    enterPortal = function() {
+      _origEnterPortal();
+      syncLiveSimButton();
+      connectLiveWS();
+    };
   </script>
 </body>
 </html>
