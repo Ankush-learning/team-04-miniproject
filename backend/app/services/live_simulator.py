@@ -78,10 +78,10 @@ def _record_feed(event_type: str, message: str, incident_code: str = "", ambulan
 
 async def _broadcast(payload: dict):
     try:
-        from app.main import manager
-        await manager.broadcast(payload)
-    except Exception:
-        pass
+        from app.main import ws_manager
+        await ws_manager.broadcast(payload)
+    except Exception as exc:
+        print(f"[LiveSim] Broadcast error: {exc}")
 
 
 async def _wait_if_paused(seconds: float):
