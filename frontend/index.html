@@ -1732,21 +1732,41 @@
     }
 
     const liveMovingAmbMarkers = {};
+    const liveAmbAnimState = {};
+
+    function computeBearingDeg(lat1, lon1, lat2, lon2) {
+      const toRad = d => d * Math.PI / 180;
+      const dLon = toRad(lon2 - lon1);
+      const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+      return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+    }
+
+    function navArrowIcon(leg, deg) {
+      const fill = leg === 'LEG_2' ? '#B3A1F8' : '#B8F432';
+      return L.divIcon({
+        className: '',
+        html: `<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;transform:rotate(${deg.toFixed(1)}deg);filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45));">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L20 20L12 16L4 20L12 2Z" fill="${fill}" stroke="#1C1D21" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+    }
 
     function drawLiveSimRoute(incId, coords, leg) {
       if (!coords || !coords.length) return;
       const latlngs = coords.map(c => c[0] > 30 ? [c[1], c[0]] : [c[0], c[1]]);
-      const color = leg === 'LEG_2' ? '#7C3AED' : '#1C1D21';
+      const innerColor = leg === 'LEG_2' ? '#B3A1F8' : '#B8F432';
       [dashMap, fullMap].forEach((m, idx) => {
         if (!m) return;
         const key = `${incId}_${idx}`;
         if (liveSimRouteLines[key]) m.removeLayer(liveSimRouteLines[key]);
-        liveSimRouteLines[key] = L.polyline(latlngs, {
-          color,
-          weight: 5,
-          opacity: 0.9,
-          dashArray: leg === 'LEG_2' ? '8,6' : null,
-        }).addTo(m);
+        const casing = L.polyline(latlngs, { color: '#1C1D21', weight: 8, opacity: 0.9 });
+        const inner = L.polyline(latlngs, { color: innerColor, weight: 4, opacity: 1.0, dashArray: leg === 'LEG_2' ? '8,6' : null });
+        liveSimRouteLines[key] = L.layerGroup([casing, inner]).addTo(m);
       });
     }
 
@@ -1759,25 +1779,42 @@
 
     function updateLiveAmbulanceMarker(ambId, lat, lon, leg, etaS) {
       if (!ambId || lat == null || lon == null) return;
-      const bg = leg === 'LEG_2' ? '#B3A1F8' : '#B8F432';
-      const icon = L.divIcon({
-        className: '',
-        html: `<div style="width:24px;height:24px;border-radius:999px;background:${bg};border:2.5px solid #1C1D21;color:#1C1D21;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.35);">A</div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      });
+      const prev = liveAmbAnimState[ambId];
+      const startLat = prev ? prev.curLat : lat;
+      const startLon = prev ? prev.curLon : lon;
+      const deg = (Math.abs(lat - startLat) > 1e-6 || Math.abs(lon - startLon) > 1e-6)
+        ? computeBearingDeg(startLat, startLon, lat, lon)
+        : (prev ? prev.deg : 0);
+
+      if (prev && prev.raf) cancelAnimationFrame(prev.raf);
+      const state = { startLat, startLon, targetLat: lat, targetLon: lon, curLat: startLat, curLon: startLon, deg, leg, t0: performance.now(), dur: 720, raf: null };
+      liveAmbAnimState[ambId] = state;
+
+      const icon = navArrowIcon(leg, deg);
       [dashMap, fullMap].forEach((m, idx) => {
         if (!m) return;
         const key = `${ambId}_${idx}`;
-        if (liveMovingAmbMarkers[key]) {
-          liveMovingAmbMarkers[key].setLatLng([lat, lon]);
-          liveMovingAmbMarkers[key].setIcon(icon);
-        } else {
-          liveMovingAmbMarkers[key] = L.marker([lat, lon], { icon, zIndexOffset: 900 })
-            .bindTooltip(`${leg === 'LEG_2' ? 'To Hospital' : 'To Emergency'} · ETA ${etaS || 0}s`, { direction: 'top' })
+        if (!liveMovingAmbMarkers[key]) {
+          liveMovingAmbMarkers[key] = L.marker([startLat, startLon], { icon, zIndexOffset: 950 })
+            .bindTooltip(`${leg === 'LEG_2' ? 'Leg 2: To Hospital' : 'Leg 1: To Emergency'} · ETA ${etaS || 0}s`, { direction: 'top' })
             .addTo(m);
+        } else {
+          liveMovingAmbMarkers[key].setIcon(icon);
+          liveMovingAmbMarkers[key].setTooltipContent(`${leg === 'LEG_2' ? 'Leg 2: To Hospital' : 'Leg 1: To Emergency'} · ETA ${etaS || 0}s`);
         }
       });
+
+      function step(now) {
+        const p = Math.min(1, (now - state.t0) / state.dur);
+        state.curLat = state.startLat + (state.targetLat - state.startLat) * p;
+        state.curLon = state.startLon + (state.targetLon - state.startLon) * p;
+        [dashMap, fullMap].forEach((m, idx) => {
+          const mk = liveMovingAmbMarkers[`${ambId}_${idx}`];
+          if (m && mk) mk.setLatLng([state.curLat, state.curLon]);
+        });
+        if (p < 1) state.raf = requestAnimationFrame(step);
+      }
+      state.raf = requestAnimationFrame(step);
     }
 
     function syncActiveRoutesFromCache() {
