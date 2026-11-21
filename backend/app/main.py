@@ -23,9 +23,11 @@ from app.core.auth import (
 )
 from app.services.pgrouting_service import find_nearest_road_node, compute_pgrouting_path
 from app.routers.portals import router as portals_router
+from app.routers.workflow import router as workflow_router, register_ws_broadcaster
 
-app = FastAPI(title=settings.APP_NAME, version="3.0.0")
+app = FastAPI(title=settings.APP_NAME, version="3.1.0")
 app.include_router(portals_router)
+app.include_router(workflow_router)
 
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
 os.makedirs(static_dir, exist_ok=True)
@@ -72,6 +74,7 @@ class ConnectionManager:
 
 
 ws_manager = ConnectionManager()
+register_ws_broadcaster(ws_manager.broadcast)
 
 
 @app.on_event("startup")

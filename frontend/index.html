@@ -278,7 +278,7 @@
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div class="lg:col-span-8 bg-white rounded-2xl border border-[#E6E8EC] overflow-hidden">
               <div class="px-5 py-3 border-b border-[#E6E8EC] flex items-center justify-between text-xs">
-                <span class="font-bold">Live Metropolitan Overview (Labelled OSM + PostGIS)</span>
+                <span class="font-bold">Live Metropolitan Overview (Native QGIS + PostGIS)</span>
                 <button onclick="switchView('disp-map')" class="px-3 py-1 rounded-lg bg-[#1C1D21] text-[#B8F432] font-semibold">Open Full GIS Map</button>
               </div>
               <div id="dash-map" class="w-full h-[430px]"></div>
@@ -294,10 +294,7 @@
         <section id="view-disp-map" class="view-panel hidden space-y-3">
           <div class="bg-white rounded-2xl border border-[#E6E8EC] p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs">
             <div class="flex flex-wrap items-center gap-2">
-              <select id="basemap-select" onchange="switchBasemap(this.value)" class="px-2.5 py-1.5 rounded-lg border border-[#E6E8EC] bg-[#F4F5F7] font-semibold">
-                <option value="osm">OpenStreetMap Standard (Labelled)</option>
-                <option value="qgis">Native PyQGIS Project Tiles</option>
-              </select>
+              <span class="px-2.5 py-1.5 rounded-lg bg-[#1C1D21] text-[#B8F432] font-mono font-semibold">QGIS Native Tiles (PostGIS)</span>
               <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input type="checkbox" checked onchange="toggleMapLayer('hospitals',this.checked)" /> Hospitals</label>
               <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input type="checkbox" checked onchange="toggleMapLayer('ambulances',this.checked)" /> Ambulances</label>
               <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input type="checkbox" checked onchange="toggleMapLayer('incidents',this.checked)" /> Emergencies</label>
@@ -654,17 +651,29 @@
       if (menu.length) switchView(menu[0].id);
     }
 
-    function osmTileLayer() {
-      return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors | IERS PostGIS',
-      });
-    }
-
     function qgisTileLayer() {
       return L.tileLayer('/tiles/{z}/{x}/{y}.png', {
         minZoom: 10, maxZoom: 17,
         attribution: 'IERS Native PyQGIS Project (PostGIS)',
+      });
+    }
+
+    function addLocalityLabels(mapObj) {
+      const hubs = [
+        [15.3647, 75.1240, 'HUBBALLI'],
+        [15.4589, 75.0078, 'DHARWAD'],
+        [15.4050, 75.0600, 'NAVANAGAR CORRIDOR'],
+        [15.3696, 75.1231, 'VIDYANAGAR'],
+        [15.3452, 75.1489, 'OLD HUBBALLI'],
+      ];
+      hubs.forEach(([lat, lon, name]) => {
+        L.marker([lat, lon], {
+          interactive: false,
+          icon: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="font-size:10px;font-weight:800;letter-spacing:0.08em;color:#1C1D21;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px;border:1px solid #CBD5E1;white-space:nowrap;">${name}</div>`,
+          }),
+        }).addTo(mapObj);
       });
     }
 
@@ -732,7 +741,8 @@
     function initDashMap() {
       if (!dashMap) {
         dashMap = L.map('dash-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.405, 75.065], 12);
-        osmTileLayer().addTo(dashMap);
+        qgisTileLayer().addTo(dashMap);
+        addLocalityLabels(dashMap);
         layers.dash.hospitals.addTo(dashMap);
         layers.dash.ambulances.addTo(dashMap);
         layers.dash.incidents.addTo(dashMap);
@@ -743,7 +753,8 @@
     function initFullMap() {
       if (!fullMap) {
         fullMap = L.map('full-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.405, 75.065], 12);
-        fullBasemapLayer = osmTileLayer().addTo(fullMap);
+        fullBasemapLayer = qgisTileLayer().addTo(fullMap);
+        addLocalityLabels(fullMap);
         layers.full.hospitals.addTo(fullMap);
         layers.full.ambulances.addTo(fullMap);
         layers.full.incidents.addTo(fullMap);
@@ -757,7 +768,8 @@
     function initRouteMap() {
       if (!routeMap) {
         routeMap = L.map('route-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.405, 75.065], 12);
-        osmTileLayer().addTo(routeMap);
+        qgisTileLayer().addTo(routeMap);
+        addLocalityLabels(routeMap);
         layers.route.addTo(routeMap);
       }
       setTimeout(() => routeMap.invalidateSize(), 80);
@@ -1127,7 +1139,8 @@
       switchView('cit-track');
       if (!citMap) {
         citMap = L.map('cit-map').setView([15.38, 75.10], 13);
-        osmTileLayer().addTo(citMap);
+        qgisTileLayer().addTo(citMap);
+        addLocalityLabels(citMap);
         layers.cit.addTo(citMap);
       }
       setTimeout(() => citMap.invalidateSize(), 80);
