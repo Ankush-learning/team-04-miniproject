@@ -828,6 +828,8 @@
         alert(data.detail || 'Dispatch queued.');
       }
       loadData();
+    setTimeout(refreshAnalytics, 1500);
+    setInterval(refreshAnalytics, 10000);
     }
 
     function drawEmergencyRoute(coordinates) {
@@ -864,6 +866,8 @@
         body: JSON.stringify({ source: 'NODE_567', target: 'NODE_473', traffic_factor: 3.8 })
       });
       loadData();
+    setTimeout(refreshAnalytics, 1500);
+    setInterval(refreshAnalytics, 10000);
     }
 
     async function resetCorridors() {
@@ -873,6 +877,8 @@
         body: JSON.stringify({ source: 'NODE_567', target: 'NODE_473', traffic_factor: 1.0 })
       });
       loadData();
+    setTimeout(refreshAnalytics, 1500);
+    setInterval(refreshAnalytics, 10000);
     }
 
     // =========================================================================
@@ -1020,12 +1026,84 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // =========================================================================
+    // Analytics Section — live data from API
+    // =========================================================================
+    async function refreshAnalytics() {
+      // Fleet status
+      const fleetList = document.getElementById('analytics-fleet-list');
+      if (cachedAmbulances.length > 0) {
+        const avail = cachedAmbulances.filter(a => a.status === 'AVAILABLE').length;
+        const total = cachedAmbulances.length;
+        fleetList.innerHTML = cachedAmbulances.map(a => {
+          const isAvail = a.status === 'AVAILABLE';
+          return `
+            <div class="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+              <div>
+                <p class="text-[11px] font-mono font-bold text-white">${a.call_sign}</p>
+                <p class="text-[10px] text-slate-500">${a.vehicle_type} · ${a.driver_name || 'Paramedic'}</p>
+              </div>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isAvail ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'} border ${isAvail ? 'border-emerald-500/20' : 'border-amber-500/20'}">
+                ${a.status}
+              </span>
+            </div>`;
+        }).join('');
+        const pct = Math.round((avail/total)*100);
+        document.getElementById('analytics-readiness').textContent = `${pct}%`;
+        document.getElementById('analytics-readiness-bar').style.width = `${pct}%`;
+        document.getElementById('analytics-readiness-bar').className =
+          `h-full rounded-full transition-all duration-700 ${pct === 100 ? 'bg-emerald-500' : pct >= 66 ? 'bg-amber-500' : 'bg-rose-500'}`;
+        document.getElementById('analytics-fleet-time').textContent = new Date().toLocaleTimeString();
+      }
+
+      // Hospital ICU
+      const hospList = document.getElementById('analytics-hospital-list');
+      if (cachedHospitals.length > 0) {
+        hospList.innerHTML = cachedHospitals.map(h => {
+          const pct = h.total_beds > 0 ? Math.round((h.icu_available / h.total_beds) * 100) : 0;
+          return `
+            <div class="flex flex-col gap-1.5 pb-3 border-b border-white/5 last:border-0 last:pb-0">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-white">${h.name}</span>
+                <span class="text-[10px] font-mono text-[#5E6AD2]">${h.icu_available} ICU</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="flex-1 bg-white/5 h-1 rounded-full overflow-hidden">
+                  <div class="h-full bg-[#5E6AD2] rounded-full" style="width:${pct}%"></div>
+                </div>
+                <span class="text-[10px] text-slate-500 font-mono">${pct}%</span>
+              </div>
+              <div class="flex items-center gap-3 text-[10px] text-slate-500">
+                <span>Trauma Tier ${h.trauma_level}</span>
+                <span>·</span>
+                <span>${h.total_beds} beds total</span>
+                <span>·</span>
+                <span>Helipad: ${h.has_helipad ? '✓' : '✗'}</span>
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      // Activity chart — simulated sparkline
+      const chart = document.getElementById('analytics-chart');
+      if (chart && chart.children.length === 0) {
+        const colors = ['#5E6AD2','#F59E0B','#10B981'];
+        const heights = [30,55,40,70,45,60,35,80,50,65,45,75];
+        chart.innerHTML = heights.map((h, i) => {
+          const color = colors[i % 3];
+          return `<div class="flex-1 rounded-t" style="height:${h}%; background:${color}; opacity:0.7;"></div>`;
+        }).join('');
+      }
+    }
+
     // Connect WebSocket
     const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${wsProto}//${window.location.host}/ws`);
     ws.onmessage = () => { loadData(); };
 
     loadData();
+    setTimeout(refreshAnalytics, 1500);
+    setInterval(refreshAnalytics, 10000);
   </script>
 </body>
 </html>
