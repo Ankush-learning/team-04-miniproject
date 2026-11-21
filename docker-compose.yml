@@ -8,7 +8,7 @@ version: "3.9"
 
 services:
   iers-postgis:
-    image: postgis/postgis:17-3.5
+    image: pgrouting/pgrouting:17-3.5-3.7.3
     container_name: iers-postgis
     restart: unless-stopped
     environment:

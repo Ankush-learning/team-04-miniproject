@@ -47,6 +47,16 @@
   - GeoAlchemy2 `Geometry` columns integrated across all models
   - `/api/v1/system/database-info` endpoint verifies live PostGIS connection (`sqlite_in_use: false`)
   - QGIS project (`Intelligent_Emergency_Response.qgz` / `.qgs`) connects directly to `iers_db` PostGIS layers
+- [x] **Milestone 13: Metropolitan Scope Correction — Hubballi & Dharwad City-Wide Network**
+  - Corrected spatial scope from localized KLE Tech campus (1,282 nodes / 2,267 edges) to the complete Hubballi-Dharwad metropolitan urban region
+  - `iers_db` (PostGIS 3.5 on port 5434) populated with **29,385 road nodes**, **40,394 road edges** (3,780.5 km total network length), and **15,605 raw OSM geometries**
+  - Geographic extent: `BOX(74.9135852 15.2093614, 75.3112678 15.6164001)` (~43 km × 45 km)
+  - Giant connected component comprises **29,375 vertices (99.96%)**; intercity Hubballi-Dharwad routing verified (30.29 km, 37 min)
+  - Legacy campus dataset preserved under schema `campus_reference`
+  - 4 metropolitan trauma/hospital hubs and 4 ambulance stations populated with 2.5 km service buffer views
+  - QGIS project regenerated and headlessly validated with all 6 layers valid and visual canvas render exported to `qgis_metropolitan_verified_render.png`
+  - Backend FastAPI updated and verified with live PostGIS diagnostics (`/api/v1/system/database-info`, `/api/v1/network`) and 5/5 pytest suite passing
+
 
 ## Live Runtime Diagnostics (`GET /api/v1/system/database-info`)
 ```json

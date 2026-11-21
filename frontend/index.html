@@ -594,12 +594,10 @@
     const map = L.map('map', { zoomControl: false }).setView([15.3680, 75.1225], 15);
     
     // CartoDB Dark Matter tile layer for the Linear/Apple dark aesthetic
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd',
-      maxZoom: 19
-    }).addTo(map);
-
+   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19
+}).addTo(map);
     let currentTab = 'active';
     let roadLayers = [];
     let ambulanceMarkers = {};

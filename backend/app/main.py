@@ -1,4 +1,4 @@
-import os
+﻿import os
 import asyncio
 import json
 from datetime import datetime
@@ -107,11 +107,10 @@ async def get_database_info(db: AsyncSession = Depends(get_db)):
     """))
     row = dict(res.fetchone()._mapping)
 
-    nodes_cnt = (await db.execute(text("SELECT count(*) FROM iers.road_network_nodes"))).scalar()
-    edges_cnt = (await db.execute(text("SELECT count(*) FROM iers.road_network_edges"))).scalar()
+    nodes_cnt = (await db.execute(text("SELECT count(*) FROM iers.road_nodes"))).scalar()
+    edges_cnt = (await db.execute(text("SELECT count(*) FROM iers.roads"))).scalar()
     ambs_cnt = (await db.execute(text("SELECT count(*) FROM iers.ambulances"))).scalar()
     hosps_cnt = (await db.execute(text("SELECT count(*) FROM iers.hospitals"))).scalar()
-
     # Redact credentials from URL for security
     clean_url = settings.DATABASE_URL
     if "@" in clean_url:
@@ -133,28 +132,59 @@ async def get_database_info(db: AsyncSession = Depends(get_db)):
         }
     }
 
+
 @app.get("/api/v1/network")
-def get_network():
-    # Return formatted road network with direct coordinates for effortless UI map overlay
-    edge_geometries = []
-    for edge in routing_engine.edges_data.values():
-        u = routing_engine.nodes_data.get(edge["source"])
-        v = routing_engine.nodes_data.get(edge["target"])
-        if u and v:
-            edge_geometries.append({
-                "id": edge["id"],
-                "name": edge["road_name"],
-                "traffic_factor": edge.get("traffic_factor", 1.0),
-                "is_emergency_lane": edge.get("is_emergency_lane", False),
-                "coords": [[u["lat"], u["lon"]], [v["lat"], v["lon"]]]
-            })
+async def get_network(db: AsyncSession = Depends(get_db)):
+    """Return the real Hubballi-Dharwad metropolitan road network from PostGIS."""
+
+    result = await db.execute(text("""
+        SELECT
+            road_id,
+            name,
+            highway,
+            distance_m,
+            traffic_multiplier,
+            current_travel_time_s,
+            is_blocked,
+            ST_AsGeoJSON(geom)::json AS geometry
+        FROM iers.roads
+        WHERE geom IS NOT NULL
+        ORDER BY road_id
+    """))
+
+    roads = result.mappings().all()
+
+    features = []
+    for road in roads:
+        if not road["geometry"]:
+            continue
+
+        features.append({
+            "type": "Feature",
+            "geometry": road["geometry"],
+            "properties": {
+                "id": road["road_id"],
+                "name": road["name"] or "Unnamed road",
+                "highway": road["highway"],
+                "distance_m": road["distance_m"],
+                "traffic_factor": road["traffic_multiplier"] or 1.0,
+                "travel_time_s": road["current_travel_time_s"],
+                "is_blocked": road["is_blocked"]
+            }
+        })
+
+    node_count = (await db.execute(
+        text("SELECT COUNT(*) FROM iers.road_nodes")
+    )).scalar_one()
 
     return {
-        "nodes_count": len(routing_engine.nodes_data),
-        "edges_count": len(routing_engine.edges_data),
-        "road_segments": edge_geometries
+        "nodes_count": node_count,
+        "edges_count": len(features),
+        "geojson": {
+            "type": "FeatureCollection",
+            "features": features
+        }
     }
-
 @app.get("/api/v1/hospitals")
 async def get_hospitals(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Hospital))
@@ -230,7 +260,7 @@ async def get_ambulances(db: AsyncSession = Depends(get_db)):
             latitude=15.369641,
             longitude=75.123161,
             current_node_id="NODE_473",
-            driver_name="Lars Nyström"
+            driver_name="Lars NystrÃ¶m"
         )
         db.add_all([a1, a2, a3])
         await db.commit()
@@ -433,3 +463,4 @@ async def resolve_incident(payload: dict, db: AsyncSession = Depends(get_db)):
     })
 
     return {"status": "RESOLVED", "incident_id": inc_id}
+
