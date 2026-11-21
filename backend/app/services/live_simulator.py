@@ -158,7 +158,7 @@ async def _run_autonomous_incident(eid: str):
                 """),
                 {"eid": eid},
             )).mappings().first()
-            if not inc or inc["status"] != "REPORTED":
+            if not inc or inc["status"] not in ("RECEIVED", "REPORTED"):
                 return
 
             # Pick nearest AVAILABLE ambulance via PostGIS KNN
@@ -372,27 +372,37 @@ async def _spawn_one_emergency() -> Optional[str]:
         area = next((a for e, _n, a in SIM_CITIZENS if e == citizen["email"]), "Hubballi Central")
         code = f"SIM-{uuid.uuid4().hex[:6].upper()}"
         desc = f"{title} near {area} (Reported by {citizen['full_name']})"
+        prio_score = 95 if priority == "P1" else (75 if priority == "P2" else 50)
 
         eid = (await db.execute(
             text("""
-                INSERT INTO public.emergencies
-                    (incident_code, emergency_type, priority, description, status, location, nearest_node_id, reported_by_user_id)
-                VALUES
-                    (:code, :etype, :prio, :desc, 'REPORTED',
-                     ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :nid, CAST(:uid AS uuid))
+                INSERT INTO public.emergencies (
+                    incident_code, reported_by, reported_by_email, location,
+                    latitude, longitude, nearest_node_id, incident_type,
+                    severity, priority_score, people_affected, description,
+                    status, caller_name, caller_phone, needs_review, location_source
+                ) VALUES (
+                    :code, CAST(:uid AS uuid), :em,
+                    ST_SetSRID(ST_MakePoint(:lon, :lat), 4326),
+                    :lat, :lon, :nid, :title,
+                    :prio, :pscore, 1, :desc,
+                    'RECEIVED', :cname, '112', FALSE, 'SIMULATED_CITIZEN'
+                )
                 RETURNING emergency_id::text
             """),
             {
-                "code": code, "etype": etype, "prio": priority, "desc": desc,
+                "code": code, "uid": citizen["user_id"], "em": citizen["email"],
                 "lon": float(node["lon"]), "lat": float(node["lat"]),
-                "nid": int(node["node_id"]), "uid": citizen["user_id"],
+                "nid": int(node["node_id"]), "title": title,
+                "prio": priority, "pscore": prio_score, "desc": desc,
+                "cname": citizen["full_name"],
             },
         )).scalar()
 
         await db.execute(
             text("""
                 INSERT INTO public.emergency_events (emergency_id, old_status, new_status, changed_by, changed_by_email, remarks)
-                VALUES (CAST(:eid AS uuid), NULL, 'REPORTED', CAST(:uid AS uuid), :em, :rem)
+                VALUES (CAST(:eid AS uuid), NULL, 'RECEIVED', CAST(:uid AS uuid), :em, :rem)
             """),
             {"eid": eid, "uid": citizen["user_id"], "em": citizen["email"], "rem": desc},
         )

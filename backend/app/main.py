@@ -411,7 +411,7 @@ async def update_incident_status(
 
     eid = cur["emergency_id"]
     await db.execute(
-        text("UPDATE public.emergencies SET status = :st, resolved_at = CASE WHEN :st IN ('COMPLETED','CANCELLED') THEN NOW() ELSE resolved_at END WHERE emergency_id = CAST(:eid AS uuid)"),
+        text("UPDATE public.emergencies SET status = :st, resolved_at = CASE WHEN CAST(:st AS text) IN ('COMPLETED','CANCELLED') THEN NOW() ELSE resolved_at END WHERE emergency_id = CAST(:eid AS uuid)"),
         {"st": new_status, "eid": eid},
     )
     if new_status in ("COMPLETED", "CANCELLED") and cur["assigned_ambulance_id"]:
