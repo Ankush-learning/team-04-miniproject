@@ -42,20 +42,20 @@ uri = (
 roads_lyr = QgsVectorLayer(uri, "Hubballi-Dharwad Roads (emergency_db)", "postgres")
 print(f"[QGIS-TILES] Loaded public.roads from emergency_db: valid={roads_lyr.isValid()}", flush=True)
 
-# Clean cartographic road hierarchy (NO purple buffer washout!)
+# Clean cartographic road hierarchy (refined proportional widths, single authoritative layer)
 cats = [
-    ("trunk", "National / Trunk Highway", "#D97706", "2.6"),
-    ("trunk_link", "Trunk Link", "#D97706", "1.8"),
-    ("primary", "Primary Arterial", "#1E293B", "2.0"),
-    ("primary_link", "Primary Link", "#1E293B", "1.4"),
-    ("secondary", "Secondary Road", "#475569", "1.4"),
-    ("secondary_link", "Secondary Link", "#475569", "1.0"),
-    ("tertiary", "Tertiary Road", "#64748B", "1.0"),
-    ("tertiary_link", "Tertiary Link", "#64748B", "0.8"),
-    ("unclassified", "Local Road", "#94A3B8", "0.75"),
-    ("residential", "Residential Street", "#CBD5E1", "0.65"),
-    ("service", "Service Lane", "#E2E8F0", "0.45"),
-    ("living_street", "Living Street", "#E2E8F0", "0.45"),
+    ("trunk", "National / Trunk Highway", "#D97706", "2.0"),
+    ("trunk_link", "Trunk Link", "#D97706", "1.4"),
+    ("primary", "Primary Arterial", "#1E293B", "1.5"),
+    ("primary_link", "Primary Link", "#1E293B", "1.1"),
+    ("secondary", "Secondary Road", "#475569", "1.1"),
+    ("secondary_link", "Secondary Link", "#475569", "0.85"),
+    ("tertiary", "Tertiary Road", "#64748B", "0.8"),
+    ("tertiary_link", "Tertiary Link", "#64748B", "0.65"),
+    ("unclassified", "Local Road", "#94A3B8", "0.6"),
+    ("residential", "Residential Street", "#CBD5E1", "0.5"),
+    ("service", "Service Lane", "#E2E8F0", "0.4"),
+    ("living_street", "Living Street", "#E2E8F0", "0.4"),
 ]
 renderer_cats = []
 for val, label, color, width in cats:
@@ -65,13 +65,14 @@ default_sym = QgsLineSymbol.createSimple({"color": "#CBD5E1", "width": "0.55", "
 renderer_cats.append(QgsRendererCategory("", default_sym, "Other"))
 roads_lyr.setRenderer(QgsCategorizedSymbolRenderer("highway", renderer_cats))
 
-# Enable crisp curved road-name labels with white halo buffer
+# Enable crisp curved road-name labels with mergeLines=True & no excessive repetition
 pal = QgsPalLayerSettings()
 pal.fieldName = "name"
 pal.enabled = True
 pal.placement = QgsPalLayerSettings.Curved
-pal.repeatDistance = 120
-pal.minFeatureSize = 12
+pal.mergeLines = True
+pal.repeatDistance = 0
+pal.minFeatureSize = 25
 
 fmt = QgsTextFormat()
 font = QFont("Inter", 8)
@@ -107,7 +108,7 @@ def tile_to_4326_bbox(z: int, x: int, y: int) -> QgsRectangle:
 
 
 def render_tile_png(z: int, x: int, y: int) -> bytes:
-    cache_path = os.path.join(CACHE_DIR, f"v3_{z}_{x}_{y}.png")
+    cache_path = os.path.join(CACHE_DIR, f"v4_{z}_{x}_{y}.png")
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
             return f.read()

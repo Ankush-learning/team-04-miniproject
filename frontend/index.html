@@ -314,7 +314,7 @@
               <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input type="checkbox" checked onchange="toggleMapLayer('hospitals',this.checked)" /> Hospitals</label>
               <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input type="checkbox" checked onchange="toggleMapLayer('ambulances',this.checked)" /> Ambulances</label>
               <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input type="checkbox" checked onchange="toggleMapLayer('incidents',this.checked)" /> Emergencies</label>
-              <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input id="chk-bbox-roads" type="checkbox" checked onchange="toggleBboxRoads(this.checked)" /> PostGIS Roads (Zoom-Aware)</label>
+              <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input id="chk-bbox-roads" type="checkbox" onchange="toggleBboxRoads(this.checked)" /> Interactive Road Inspector</label>
               <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input type="checkbox" onchange="toggleRoadOverlay('congested',this.checked)" /> Congested</label>
               <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input type="checkbox" onchange="toggleRoadOverlay('corridors',this.checked)" /> Corridors</label>
               <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]"><input type="checkbox" onchange="toggleRoadOverlay('oneway',this.checked)" /> One-Way</label>
@@ -782,7 +782,7 @@
           }, 180);
         });
       }
-      setTimeout(() => { fullMap.invalidateSize(); loadBboxRoads(); }, 80);
+      setTimeout(() => { fullMap.invalidateSize(); }, 80);
     }
 
     function initRouteMap() {
