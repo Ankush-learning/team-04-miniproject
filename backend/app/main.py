@@ -495,7 +495,30 @@ async def api_start_simulation(payload: dict = {}, _: Dict[str, Any] = Depends(r
     from app.services.live_simulator import start_simulation
     return await start_simulation(
         max_concurrent=int(payload.get("max_concurrent", 4)),
-        spawn_interval_s=int(payload.get("spawn_interval_s", 8)),
+        spawn_interval_s=int(payload.get("spawn_interval_s", 6)),
+        speed_multiplier=float(payload.get("speed_multiplier", 2.0)),
+    )
+
+
+@app.post("/api/v1/simulation/pause")
+async def api_pause_simulation(_: Dict[str, Any] = Depends(require_roles("DISPATCHER"))):
+    from app.services.live_simulator import pause_simulation
+    return await pause_simulation()
+
+
+@app.post("/api/v1/simulation/resume")
+async def api_resume_simulation(_: Dict[str, Any] = Depends(require_roles("DISPATCHER"))):
+    from app.services.live_simulator import resume_simulation
+    return await resume_simulation()
+
+
+@app.post("/api/v1/simulation/config")
+async def api_config_simulation(payload: dict = {}, _: Dict[str, Any] = Depends(require_roles("DISPATCHER"))):
+    from app.services.live_simulator import update_simulation_config
+    return await update_simulation_config(
+        speed_multiplier=payload.get("speed_multiplier"),
+        max_concurrent=payload.get("max_concurrent"),
+        spawn_interval_s=payload.get("spawn_interval_s"),
     )
 
 
@@ -503,6 +526,12 @@ async def api_start_simulation(payload: dict = {}, _: Dict[str, Any] = Depends(r
 async def api_stop_simulation(_: Dict[str, Any] = Depends(require_roles("DISPATCHER"))):
     from app.services.live_simulator import stop_simulation
     return await stop_simulation()
+
+
+@app.post("/api/v1/simulation/reset")
+async def api_reset_simulation(_: Dict[str, Any] = Depends(require_roles("DISPATCHER"))):
+    from app.services.live_simulator import reset_demo_scenario
+    return await reset_demo_scenario()
 
 
 @app.get("/api/v1/simulation/status")

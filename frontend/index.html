@@ -263,10 +263,20 @@
           <span id="sim-banner" class="hidden text-caption font-mono px-2.5 py-1 rounded-full bg-[#B3A1F8]/25 font-semibold">SIMULATED TRAFFIC</span>
         </div>
         <div id="header-actions" class="flex items-center gap-2">
-          <button id="btn-live-sim" onclick="toggleLiveSimulation()" class="hidden px-3.5 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] hover:bg-[#1C1D21] hover:text-[#B8F432] text-xs font-semibold transition flex items-center gap-2">
-            <span id="live-sim-dot" class="w-2 h-2 rounded-full bg-[#6E737D]"></span>
-            <span id="live-sim-label">Auto-Sim: OFF</span>
-          </button>
+          <div id="sim-control-bar" class="hidden flex items-center gap-1.5 bg-[#F4F5F7] border border-[#E6E8EC] rounded-xl px-2 py-1 text-xs">
+            <button id="btn-live-sim" onclick="toggleLiveSimulation()" class="px-2.5 py-1.5 rounded-lg bg-[#1C1D21] text-[#B8F432] font-semibold transition flex items-center gap-1.5">
+              <span id="live-sim-dot" class="w-2 h-2 rounded-full bg-[#6E737D]"></span>
+              <span id="live-sim-label">Auto-Sim: OFF</span>
+            </button>
+            <button id="btn-sim-pause" onclick="togglePauseSimulation()" class="hidden px-2 py-1.5 rounded-lg border border-[#E6E8EC] bg-white hover:bg-[#1C1D21] hover:text-white font-semibold transition">Pause</button>
+            <select id="sim-speed-select" onchange="changeSimSpeed(this.value)" title="Simulation Speed" class="px-2 py-1.5 rounded-lg border border-[#E6E8EC] bg-white font-mono font-semibold text-[#1C1D21]">
+              <option value="1">1x</option>
+              <option value="2" selected>2x</option>
+              <option value="5">5x</option>
+              <option value="10">10x</option>
+            </select>
+            <button onclick="resetDemoScenario()" title="Reset active simulated missions and release all ambulances" class="px-2 py-1.5 rounded-lg border border-[#E6E8EC] bg-white hover:bg-[#EF4444] hover:text-white hover:border-[#EF4444] font-semibold transition">Reset</button>
+          </div>
         </div>
       </header>
 
@@ -1691,31 +1701,44 @@
     // LIVE OPERATIONS SIMULATOR + WEBSOCKET REAL-TIME MAP SYNC
     // =========================================================================
     let liveSimRunning = false;
+    let liveSimPaused = false;
     let liveWS = null;
     let liveWsRefreshTimer = null;
     const liveSimRouteLines = {};
 
     async function syncLiveSimButton() {
+      const bar = document.getElementById('sim-control-bar');
       const btn = document.getElementById('btn-live-sim');
-      if (!btn) return;
+      const pauseBtn = document.getElementById('btn-sim-pause');
+      const speedSel = document.getElementById('sim-speed-select');
+      if (!bar || !btn) return;
       if (!currentUser || currentUser.role !== 'DISPATCHER') {
-        btn.classList.add('hidden');
+        bar.classList.add('hidden');
         return;
       }
-      btn.classList.remove('hidden');
+      bar.classList.remove('hidden');
       try {
         const st = await apiFetch('/api/v1/simulation/status');
         liveSimRunning = !!st.running;
+        liveSimPaused = !!st.paused;
+        if (speedSel && st.speed_multiplier) speedSel.value = String(Math.round(st.speed_multiplier));
         const dot = document.getElementById('live-sim-dot');
         const lbl = document.getElementById('live-sim-label');
         if (liveSimRunning) {
-          btn.className = 'px-3.5 py-2 rounded-xl border border-[#1C1D21] bg-[#1C1D21] text-[#B8F432] text-xs font-semibold transition flex items-center gap-2';
-          dot.className = 'w-2 h-2 rounded-full bg-[#B8F432] animate-pulse';
-          lbl.textContent = `Auto-Sim: LIVE (${st.active_missions} active · ${st.completed_count} done)`;
+          btn.className = 'px-2.5 py-1.5 rounded-lg bg-[#1C1D21] text-[#B8F432] font-semibold transition flex items-center gap-1.5';
+          dot.className = liveSimPaused ? 'w-2 h-2 rounded-full bg-[#F59E0B]' : 'w-2 h-2 rounded-full bg-[#B8F432] animate-pulse';
+          lbl.textContent = liveSimPaused
+            ? `Auto-Sim: PAUSED (${st.active_missions} active · ${st.completed_count} done)`
+            : `Auto-Sim: LIVE (${st.active_missions} active · ${st.completed_count} done)`;
+          if (pauseBtn) {
+            pauseBtn.classList.remove('hidden');
+            pauseBtn.textContent = liveSimPaused ? 'Resume' : 'Pause';
+          }
         } else {
-          btn.className = 'px-3.5 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] hover:bg-[#1C1D21] hover:text-[#B8F432] text-xs font-semibold transition flex items-center gap-2';
+          btn.className = 'px-2.5 py-1.5 rounded-lg border border-[#E6E8EC] bg-white hover:bg-[#1C1D21] hover:text-[#B8F432] font-semibold transition flex items-center gap-1.5';
           dot.className = 'w-2 h-2 rounded-full bg-[#6E737D]';
           lbl.textContent = 'Auto-Sim: OFF';
+          if (pauseBtn) pauseBtn.classList.add('hidden');
         }
       } catch (e) {}
     }
@@ -1725,9 +1748,38 @@
         if (liveSimRunning) {
           await apiFetch('/api/v1/simulation/stop', { method: 'POST' });
         } else {
-          await apiFetch('/api/v1/simulation/start', { method: 'POST', body: JSON.stringify({ max_concurrent: 5, spawn_interval_s: 4 }) });
+          const spd = Number(document.getElementById('sim-speed-select')?.value || 2);
+          await apiFetch('/api/v1/simulation/start', { method: 'POST', body: JSON.stringify({ max_concurrent: 4, spawn_interval_s: 6, speed_multiplier: spd }) });
         }
         await syncLiveSimButton();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function togglePauseSimulation() {
+      try {
+        await apiFetch(liveSimPaused ? '/api/v1/simulation/resume' : '/api/v1/simulation/pause', { method: 'POST' });
+        await syncLiveSimButton();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function changeSimSpeed(val) {
+      try {
+        await apiFetch('/api/v1/simulation/config', { method: 'POST', body: JSON.stringify({ speed_multiplier: Number(val) }) });
+        await syncLiveSimButton();
+      } catch (e) {}
+    }
+
+    async function resetDemoScenario() {
+      if (!confirm('Reset active simulated missions and return all ambulances to AVAILABLE? Historical completed records will be preserved.')) return;
+      try {
+        await apiFetch('/api/v1/simulation/reset', { method: 'POST' });
+        Object.keys(liveSimRouteLines).forEach(k => clearLiveSimRoute(k.split('_')[0]));
+        Object.keys(liveMovingAmbMarkers).forEach(k => {
+          [dashMap, fullMap].forEach(m => { if (m && liveMovingAmbMarkers[k]) m.removeLayer(liveMovingAmbMarkers[k]); });
+          delete liveMovingAmbMarkers[k];
+        });
+        await syncLiveSimButton();
+        if (typeof loadAllDispatcherData === 'function') await loadAllDispatcherData();
       } catch (e) { alert(e.message); }
     }
 
@@ -1742,19 +1794,25 @@
       return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
     }
 
-    function navArrowIcon(leg, deg) {
-      const fill = leg === 'LEG_2' ? '#7C3AED' : '#2563EB';
+    function navArrowIcon(leg, deg, status) {
+      const ring = leg === 'LEG_2' ? '#7C3AED'
+        : (status === 'PICKUP_IN_PROGRESS' || status === 'ARRIVED_AT_EMERGENCY') ? '#F59E0B'
+        : '#2563EB';
       return L.divIcon({
         className: '',
-        html: `<div style="width:32px;height:32px;border-radius:999px;background:${fill};border:3px solid #FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(37,99,235,0.45);">
+        html: `<div style="width:36px;height:36px;border-radius:999px;background:rgba(255,255,255,0.92);border:2.5px solid ${ring};display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(0,0,0,0.35);">
           <div style="transform:rotate(${deg.toFixed(1)}deg);display:flex;align-items:center;justify-content:center;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L20 20L12 16L4 20L12 2Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round"/>
+            <svg width="20" height="28" viewBox="0 0 20 28" fill="none">
+              <rect x="3" y="2" width="14" height="24" rx="3.5" fill="#FFFFFF" stroke="#1C1D21" stroke-width="1.6"/>
+              <rect x="4.5" y="4" width="11" height="4.5" rx="1.2" fill="#38BDF8" stroke="#1C1D21" stroke-width="0.8"/>
+              <rect x="5" y="9.5" width="4.5" height="2" rx="0.6" fill="#EF4444"/>
+              <rect x="10.5" y="9.5" width="4.5" height="2" rx="0.6" fill="#2563EB"/>
+              <path d="M10 14.5V21.5M6.5 18H13.5" stroke="#EF4444" stroke-width="2.2" stroke-linecap="round"/>
             </svg>
           </div>
         </div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
       });
     }
 
@@ -1805,7 +1863,7 @@
       });
     }
 
-    function updateLiveAmbulanceMarker(ambId, lat, lon, leg, etaS) {
+    function updateLiveAmbulanceMarker(ambId, lat, lon, leg, etaS, stepMs, callSign, status, progressPct, remM) {
       if (!ambId || lat == null || lon == null) return;
       const prev = liveAmbAnimState[ambId];
       const startLat = prev ? prev.curLat : lat;
@@ -1815,20 +1873,22 @@
         : (prev ? prev.deg : 0);
 
       if (prev && prev.raf) cancelAnimationFrame(prev.raf);
-      const state = { startLat, startLon, targetLat: lat, targetLon: lon, curLat: startLat, curLon: startLon, deg, leg, t0: performance.now(), dur: 1180, raf: null };
+      const dur = Math.max(200, Number(stepMs || 780));
+      const state = { startLat, startLon, targetLat: lat, targetLon: lon, curLat: startLat, curLon: startLon, deg, leg, t0: performance.now(), dur, raf: null };
       liveAmbAnimState[ambId] = state;
 
-      const icon = navArrowIcon(leg, deg);
+      const icon = navArrowIcon(leg, deg, status);
+      const label = `${callSign || 'Ambulance'} · ${leg === 'LEG_2' ? 'To Hospital' : 'To Emergency'} · ETA ${etaS || 0}s${progressPct ? ` (${progressPct}%)` : ''}`;
       [dashMap, fullMap].forEach((m, idx) => {
         if (!m) return;
         const key = `${ambId}_${idx}`;
         if (!liveMovingAmbMarkers[key]) {
           liveMovingAmbMarkers[key] = L.marker([startLat, startLon], { icon, zIndexOffset: 950 })
-            .bindTooltip(`${leg === 'LEG_2' ? 'Leg 2: To Hospital' : 'Leg 1: To Emergency'} · ETA ${etaS || 0}s`, { direction: 'top' })
+            .bindTooltip(label, { direction: 'top' })
             .addTo(m);
         } else {
           liveMovingAmbMarkers[key].setIcon(icon);
-          liveMovingAmbMarkers[key].setTooltipContent(`${leg === 'LEG_2' ? 'Leg 2: To Hospital' : 'Leg 1: To Emergency'} · ETA ${etaS || 0}s`);
+          liveMovingAmbMarkers[key].setTooltipContent(label);
         }
       });
 
@@ -1868,7 +1928,7 @@
         try {
           const msg = JSON.parse(ev.data);
           if (msg.type === 'AMBULANCE_LOCATION' && msg.ambulance_id) {
-            updateLiveAmbulanceMarker(msg.ambulance_id, msg.lat, msg.lon, msg.leg || 'LEG_1', msg.eta_seconds);
+            updateLiveAmbulanceMarker(msg.ambulance_id, msg.lat, msg.lon, msg.leg || 'LEG_1', msg.eta_seconds, msg.step_ms, msg.ambulance_callsign, msg.status, msg.progress_pct, msg.remaining_distance_m);
             return;
           }
           if (msg.route_coords && msg.incident_id) {
