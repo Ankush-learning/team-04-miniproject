@@ -2,12 +2,12 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import declarative_base
 from app.core.config import settings
 
-# Configure search_path to prioritize the iers schema for all PostGIS operations
+# Unified operational schema: public inside emergency_db
 connect_args = {}
 if "postgresql" in settings.DATABASE_URL:
     connect_args = {
         "server_settings": {
-            "search_path": "iers, public"
+            "search_path": "public"
         }
     }
 

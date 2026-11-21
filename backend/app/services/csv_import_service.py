@@ -208,11 +208,11 @@ async def execute_hospital_csv_import(
         status = "FAILED_VALIDATION"
         await db.execute(
             text("""
-                INSERT INTO iers.hospital_csv_imports (
+                INSERT INTO public.hospital_csv_imports (
                     import_id, hospital_id, uploaded_by, original_filename, import_mode,
                     total_rows, successful_rows, failed_rows, status, error_summary
                 ) VALUES (
-                    :iid, :hid, :ub, :fn, :mode,
+                    :iid, CAST(:hid AS uuid), :ub, :fn, :mode,
                     :tot, 0, :fail, :st, CAST(:err AS jsonb)
                 )
             """),
@@ -238,8 +238,9 @@ async def execute_hospital_csv_import(
     for rec in parsed["valid_rows"]:
         await db.execute(
             text("""
-                UPDATE iers.hospitals
+                UPDATE public.hospitals
                 SET total_beds = :tb,
+                    available_beds = :tb,
                     icu_available = :icu,
                     trauma_beds_available = COALESCE(:trb, trauma_beds_available),
                     emergency_dept_capacity = COALESCE(:edc, emergency_dept_capacity),
@@ -248,7 +249,7 @@ async def execute_hospital_csv_import(
                     has_cardiology = COALESCE(:hcar, has_cardiology),
                     service_status = :sst,
                     service_notes = :snt
-                WHERE hospital_id = :hid
+                WHERE hospital_id = CAST(:hid AS uuid)
             """),
             {
                 "tb": rec["total_beds"], "icu": rec["icu_available"],
@@ -260,10 +261,10 @@ async def execute_hospital_csv_import(
         )
         await db.execute(
             text("""
-                INSERT INTO iers.hospital_capacity_history (
+                INSERT INTO public.hospital_capacity_history (
                     hospital_id, changed_by, total_beds, icu_available,
                     trauma_beds_available, emergency_dept_capacity, service_status, remarks
-                ) VALUES (:hid, :cb, :tb, :icu, :trb, :edc, :sst, :rem)
+                ) VALUES (CAST(:hid AS uuid), :cb, :tb, :icu, :trb, :edc, :sst, :rem)
             """),
             {
                 "hid": auth_hospital_id, "cb": uploaded_by,
@@ -276,11 +277,11 @@ async def execute_hospital_csv_import(
 
     await db.execute(
         text("""
-            INSERT INTO iers.hospital_csv_imports (
+            INSERT INTO public.hospital_csv_imports (
                 import_id, hospital_id, uploaded_by, original_filename, import_mode,
                 total_rows, successful_rows, failed_rows, status, error_summary
             ) VALUES (
-                :iid, :hid, :ub, :fn, :mode, :tot, :ok, 0, 'COMPLETED', '[]'::jsonb
+                :iid, CAST(:hid AS uuid), :ub, :fn, :mode, :tot, :ok, 0, 'COMPLETED', '[]'::jsonb
             )
         """),
         {

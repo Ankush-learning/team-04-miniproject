@@ -13,12 +13,8 @@ def get_default_database_url() -> str:
     if env_url:
         return env_url
 
-    # Check if 'iers-postgis' host is resolvable (i.e. running in container network)
-    try:
-        socket.gethostbyname("iers-postgis")
-        return "postgresql+asyncpg://iers_user:iers_dev_local@iers-postgis:5432/iers_db"
-    except (socket.gaierror, Exception):
-        return "postgresql+asyncpg://iers_user:iers_dev_local@localhost:5434/iers_db"
+    # Unified operational PostgreSQL/PostGIS database inspected in pgAdmin: emergency_db (public)
+    return "postgresql+asyncpg://postgres:Ankush%402007@localhost:5432/emergency_db"
 
 class Settings(BaseSettings):
     APP_NAME: str = "Intelligent Emergency Response System"

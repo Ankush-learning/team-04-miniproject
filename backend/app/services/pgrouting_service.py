@@ -14,7 +14,7 @@ async def find_nearest_road_node(db: AsyncSession, lat: float, lon: float) -> Op
         text("""
             SELECT node_id,
                    ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) AS dist_m
-            FROM iers.road_nodes
+            FROM public.road_nodes
             ORDER BY location <-> ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)
             LIMIT 1
         """),
@@ -82,7 +82,7 @@ def _build_edge_sql(
     return (
         f"SELECT road_id AS id, source, target, "
         f"{cost_expr} AS cost, {rev_expr} AS reverse_cost{coords_cols} "
-        f"FROM iers.roads "
+        f"FROM public.roads "
         f"WHERE NOT is_blocked "
         f"AND COALESCE(max_height_m, 4.5) >= {h} "
         f"AND COALESCE(max_width_m, 6.0) >= {w} "
@@ -140,7 +140,7 @@ async def compute_pgrouting_path(
                 CASE WHEN d.node = r.source THEN r.geom ELSE ST_Reverse(r.geom) END
             ) AS geom_json
         FROM {pgr_call} d
-        JOIN iers.roads r ON r.road_id = d.edge
+        JOIN public.roads r ON r.road_id = d.edge
         WHERE d.edge > 0
         ORDER BY d.seq
     """)
