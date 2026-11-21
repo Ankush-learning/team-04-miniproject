@@ -1398,9 +1398,57 @@
     }
 
     // =========================================================================
-    // AMBULANCE OPERATOR PORTAL (LIVE TWO-LEG QGIS NAVIGATION MAP + 8 STAGES)
+    // AMBULANCE OPERATOR PORTAL (LIVE GOOGLE-MAPS-STYLE TWO-LEG NAVIGATION)
     // =========================================================================
-    let opMap = null, opLayer = L.layerGroup();
+    let opMap = null, opLayer = L.layerGroup(), opNavAnimId = null;
+
+    function navArrowIcon(bearing = 0) {
+      return L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="transform:rotate(${bearing}deg);width:34px;height:34px;border-radius:50%;background:#1C1D21;border:3px solid #B8F432;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.45);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#B8F432"><polygon points="12,2 21,21 12,17 3,21"/></svg>
+        </div>`,
+        iconSize: [34, 34], iconAnchor: [17, 17],
+      });
+    }
+
+    function startOperatorNavAnimation(coords, totalKm, isLeg2) {
+      if (opNavAnimId) cancelAnimationFrame(opNavAnimId);
+      if (!coords || coords.length < 2 || !opMap) return;
+
+      const trailLine = L.polyline([coords[0]], { color: '#94A3B8', weight: 5, opacity: 0.55 }).addTo(opLayer);
+      const aheadLine = L.polyline(coords, { color: isLeg2 ? '#16A34A' : '#1C1D21', weight: 6, opacity: 0.95 }).addTo(opLayer);
+      const navMarker = L.marker(coords[0], { icon: navArrowIcon(0), zIndexOffset: 1000 }).addTo(opLayer);
+
+      const durationMs = 16000; // 16-second smooth Google-Maps-style navigation playback
+      const startTime = performance.now();
+      opMap.setView(coords[0], 15, { animate: true });
+
+      function step(now) {
+        const t = Math.min(1, (now - startTime) / durationMs);
+        const exactIdx = t * (coords.length - 1);
+        const i = Math.min(coords.length - 2, Math.floor(exactIdx));
+        const frac = exactIdx - i;
+        const [lat1, lon1] = coords[i];
+        const [lat2, lon2] = coords[i + 1];
+        const lat = lat1 + (lat2 - lat1) * frac;
+        const lon = lon1 + (lon2 - lon1) * frac;
+        const bearing = (Math.atan2(lon2 - lon1, lat2 - lat1) * 180 / Math.PI + 360) % 360;
+
+        navMarker.setLatLng([lat, lon]);
+        navMarker.setIcon(navArrowIcon(Math.round(bearing)));
+        trailLine.setLatLngs([...coords.slice(0, i + 1), [lat, lon]]);
+        aheadLine.setLatLngs([[lat, lon], ...coords.slice(i + 1)]);
+        opMap.panTo([lat, lon], { animate: false });
+
+        const remSec = Math.max(0, Math.ceil((1 - t) * (durationMs / 1000)));
+        const remKm = (totalKm * (1 - t)).toFixed(2);
+        document.getElementById('op-map-eta').textContent = t < 1 ? `NAVIGATING · ETA ${remSec}s · ${remKm} km` : 'ARRIVED AT DESTINATION';
+
+        if (t < 1) opNavAnimId = requestAnimationFrame(step);
+      }
+      opNavAnimId = requestAnimationFrame(step);
+    }
 
     async function loadOperatorPortalData() {
       const [data, hist] = await Promise.all([apiFetch('/api/v1/operator/my-unit'), apiFetch('/api/v1/operator/history')]);
@@ -1463,14 +1511,17 @@
         }
         if (a.active_route_json && a.active_route_json.coordinates && a.active_route_json.coordinates.length > 1) {
           const isLeg2 = a.active_leg === 'LEG_2';
-          const poly = L.polyline(a.active_route_json.coordinates, {
-            color: isLeg2 ? '#16A34A' : '#1C1D21',
-            weight: 5,
-            opacity: 0.95,
-          }).addTo(opLayer);
-          opMap.fitBounds(poly.getBounds(), { padding: [40, 40] });
+          const coords = a.active_route_json.coordinates;
+          const totalKm = a.active_route_json.total_distance_km || 0;
           document.getElementById('op-map-title').textContent = isLeg2 ? `LEG 2: Fastest Route to ${a.hospital_name}` : `LEG 1: Fastest Route to Emergency`;
-          document.getElementById('op-map-eta').textContent = `ETA ${a.eta_seconds || 0}s · ${(a.active_route_json.total_distance_km || 0)} km`;
+          if (a.status === 'EN_ROUTE_TO_EMERGENCY' || a.status === 'EN_ROUTE_TO_HOSPITAL') {
+            startOperatorNavAnimation(coords, totalKm, isLeg2);
+          } else {
+            if (opNavAnimId) cancelAnimationFrame(opNavAnimId);
+            const poly = L.polyline(coords, { color: isLeg2 ? '#16A34A' : '#1C1D21', weight: 5, opacity: 0.95 }).addTo(opLayer);
+            opMap.fitBounds(poly.getBounds(), { padding: [40, 40] });
+            document.getElementById('op-map-eta').textContent = `ETA ${a.eta_seconds || 0}s · ${totalKm} km`;
+          }
         } else {
           opMap.setView([a.latitude, a.longitude], 14);
         }
