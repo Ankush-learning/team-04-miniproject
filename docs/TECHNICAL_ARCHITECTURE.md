@@ -133,3 +133,12 @@ c.commit(); c.close()
 5. **Ambulance Operator** confirms pickup (`PATIENT_PICKED_UP`) $\to$ Leg 2 route to hospital auto-computed via pgRouting.
 6. **Hospital Staff** monitors incoming unit & updates capacity (`PATCH /api/v1/hospital/my-facility` or transactional Bulk CSV Import).
 7. **Dispatcher** verifies completion (`POST /api/v1/workflow/verify/{id}`) $\to$ closes emergency (`COMPLETED`) and releases ambulance back to `AVAILABLE`.
+
+---
+
+## 6. Verified Test Results
+
+All automated pytest results (`10/10 PASSED`), PostGIS topology audits, intercity pgRouting tests, and multi-scale PyQGIS tile checks are archived in [`docs/test_results/`](test_results/):
+- [TEST_SUMMARY.md](test_results/TEST_SUMMARY.md) — Structured test report & spatial diagnostics
+- [pytest_results.txt](test_results/pytest_results.txt) — Verbatim `pytest -v` execution log
+

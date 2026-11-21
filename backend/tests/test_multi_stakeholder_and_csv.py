@@ -57,12 +57,13 @@ def test_four_stakeholder_roles_and_rbac():
 
 
 def test_hospital_csv_bulk_import_validation_and_security():
-    tok_hosp, _ = _login("hospital1@iers.gov.in", "hospital123")
+    tok_hosp, u_hosp = _login("hospital1@iers.gov.in", "hospital123")
+    hid = u_hosp["assigned_entity_id"]
 
     # 1. Valid CSV preview & commit
     valid_csv = (
         "hospital_id,total_beds,icu_available,trauma_beds_available,emergency_dept_capacity,has_icu,has_trauma_care,has_cardiology,service_status,service_notes\n"
-        "HOSP_01,650,44,18,30,true,true,true,OPERATIONAL,Automated pytest CSV import\n"
+        f"{hid},650,44,18,30,true,true,true,OPERATIONAL,Automated pytest CSV import\n"
     )
     st, prev = _req("/api/v1/hospital/csv/preview", "POST", {"csv_text": valid_csv}, token=tok_hosp)
     assert st == 200
@@ -78,16 +79,16 @@ def test_hospital_csv_bulk_import_validation_and_security():
     assert comm["status"] == "COMPLETED" and comm["successful_rows"] == 1
 
     # 2. Invalid row (icu_available > total_beds)
-    bad_csv = "hospital_id,total_beds,icu_available\nHOSP_01,50,99\n"
+    bad_csv = f"hospital_id,total_beds,icu_available\n{hid},50,99\n"
     st, prev_bad = _req("/api/v1/hospital/csv/preview", "POST", {"csv_text": bad_csv}, token=tok_hosp)
     assert st == 200 and prev_bad["invalid_count"] == 1
 
     # 3. Duplicate row detection
-    dup_csv = "hospital_id,total_beds,icu_available\nHOSP_01,650,40\nHOSP_01,650,40\n"
+    dup_csv = f"hospital_id,total_beds,icu_available\n{hid},650,40\n{hid},650,40\n"
     st, prev_dup = _req("/api/v1/hospital/csv/preview", "POST", {"csv_text": dup_csv}, token=tok_hosp)
     assert st == 200 and prev_dup["duplicate_count"] == 1
 
-    # 4. Cross-hospital CSV manipulation attempt (HOSP_02 uploaded by HOSP_01 staff) -> rejected
+    # 4. Cross-hospital CSV manipulation attempt -> rejected
     cross_csv = "hospital_id,total_beds,icu_available\nHOSP_02,100,10\n"
     st, comm_cross = _req(
         "/api/v1/hospital/csv/commit",
@@ -101,8 +102,8 @@ def test_hospital_csv_bulk_import_validation_and_security():
 
 
 def test_bbox_zoom_dependent_gis_roads():
-    st, fc_low = _req("/api/v1/gis/roads-bbox?min_lon=74.95&min_lat=15.30&max_lon=75.20&max_lat=15.50&zoom=12")
+    st, fc_low = _req("/api/v1/gis/roads-bbox?min_lon=74.95&min_lat=15.30&max_lon=75.20&max_lat=15.50&zoom=10")
     assert st == 200
     assert fc_low["count"] > 0
-    # Low zoom should only return trunk/primary highways
+    # Level 1 Metropolitan zoom (<=10) should only return trunk/primary highways
     assert all(f["properties"]["highway"] in ("trunk", "trunk_link", "primary", "primary_link") for f in fc_low["features"])

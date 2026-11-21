@@ -101,7 +101,7 @@ def test_complete_7_stage_workflow_and_complaints():
     assert st == 200 and ver["status"] == "COMPLETED"
 
     st, ambs = _req("/api/v1/ambulances", token=tok_disp)
-    amb1 = next(a for a in ambs if a["id"] == "AMB_01")
+    amb1 = next(a for a in ambs if a.get("ambulance_code") == "AMB_01" or a["id"] == "AMB_01")
     assert amb1["status"] == "AVAILABLE"
 
     st, cmp = _req(
