@@ -1,40 +1,24 @@
 -- ============================================================================
--- 05_spatial_indexes.sql
--- Intelligent Emergency Response System (IERS)
--- Spatial GiST Indexing & Performance Optimization
+-- 05_spatial_indexes.sql — IERS
+-- GiST spatial indexes on all iers schema geometry columns
 -- ============================================================================
+SET search_path TO iers, public;
 
-SET search_path TO emergency, public;
+CREATE INDEX IF NOT EXISTS iers_idx_nodes_geom   ON iers.road_network_nodes USING GIST(geom);
+CREATE INDEX IF NOT EXISTS iers_idx_edges_geom   ON iers.road_network_edges USING GIST(geom);
+CREATE INDEX IF NOT EXISTS iers_idx_hosp_geom    ON iers.hospitals           USING GIST(geom);
+CREATE INDEX IF NOT EXISTS iers_idx_amb_geom     ON iers.ambulances          USING GIST(geom);
+CREATE INDEX IF NOT EXISTS iers_idx_inc_geom     ON iers.incidents           USING GIST(geom);
+CREATE INDEX IF NOT EXISTS iers_idx_vert_geom    ON iers.vertices_map        USING GIST(geom);
 
--- 1. GiST Indexes on Geometry columns for millisecond bounding-box filtering
-CREATE INDEX IF NOT EXISTS idx_road_nodes_geom 
-    ON emergency.road_network_nodes USING GIST (geom);
+ANALYZE iers.road_network_nodes;
+ANALYZE iers.road_network_edges;
+ANALYZE iers.hospitals;
+ANALYZE iers.ambulances;
+ANALYZE iers.vertices_map;
 
-CREATE INDEX IF NOT EXISTS idx_road_edges_geom 
-    ON emergency.road_network_edges USING GIST (geom);
-
-CREATE INDEX IF NOT EXISTS idx_hospitals_geom 
-    ON emergency.hospitals USING GIST (geom);
-
-CREATE INDEX IF NOT EXISTS idx_ambulances_geom 
-    ON emergency.ambulances USING GIST (geom);
-
-CREATE INDEX IF NOT EXISTS idx_incidents_geom 
-    ON emergency.incidents USING GIST (geom);
-
--- 2. B-Tree Indexes on Foreign Keys and Routing Vertex IDs
-CREATE INDEX IF NOT EXISTS idx_edges_source_target_vertex 
-    ON emergency.road_network_edges (source_vertex_id, target_vertex_id);
-
-CREATE INDEX IF NOT EXISTS idx_ambulances_status 
-    ON emergency.ambulances (status);
-
-CREATE INDEX IF NOT EXISTS idx_incidents_status_severity 
-    ON emergency.incidents (status, severity);
-
--- 3. Run VACUUM ANALYZE to update optimizer table statistics
-ANALYZE emergency.road_network_nodes;
-ANALYZE emergency.road_network_edges;
-ANALYZE emergency.hospitals;
-ANALYZE emergency.ambulances;
-ANALYZE emergency.incidents;
+-- Verify
+SELECT schemaname, tablename, indexname
+FROM pg_indexes
+WHERE schemaname = 'iers' AND indexname LIKE 'iers_idx%'
+ORDER BY tablename;

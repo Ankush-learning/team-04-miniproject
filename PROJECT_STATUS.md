@@ -6,46 +6,56 @@
 - **SSH Auth Status**: Verified (`Hi Ankush-learning!`)
 - **Remote Branch**: `main`
 
+## Architecture — Verified Clean Separation
+
+| Component | IERS | GeoPilot (separate project — do not modify) |
+|---|---|---|
+| Container | `iers-postgis` | `geopilot-postgis` |
+| Port | **5434** | 5433 |
+| Database | **iers_db** | geopilot |
+| User | **iers_user** | geopilot |
+| Volume | **iers_postgis_data** | geopilot_geopilot_data |
+| Schema | **iers.\*** | public.\* |
+| Compose file | `C:\Projects\Intelligent-Emergency-Response\docker-compose.yml` | `C:\GeoPilot\docker-compose.yml` |
+
 ## Milestones Progress
+
 - [x] **Milestone 1: Environment Audit & Repository Setup**
-  - Project directory hierarchy established.
-  - SSH remote authentication confirmed.
-  - Python virtual environment initialized.
-  - Dependency configuration created (`requirements.txt`).
 - [x] **Milestone 2: GIS Core & Spatial Road Network**
-  - Discovered and integrated actual GIS datasets from `Documents` (`campus_roads_export.gpkg`, `roads_raw.gpkg`).
-  - Decoded OGC GeoPackage binary geometry headers to parse 1,282 spatial nodes and 2,267 road edges.
-  - Identified and connected the major traversable component of the smart campus corridor.
-- [x] **Milestone 3: Database Engine & Incremental Migrations**
-  - SQLAlchemy Async relational models implemented for Nodes, Edges, Ambulances, Hospitals, and Incidents.
-  - Database schema safety guarantees maintained (no destructive truncate/drop).
-- [x] **Milestone 4: Constrained Routing Algorithms (Vehicle Types & Clearance)**
-  - A* routing with height, width, and weight clearance constraints.
-  - Automatic rejection and intelligent rerouting around low bridges and narrow cobblestone alleys.
+  - 1,282 nodes, 2,267 edges from `campus_roads_export.gpkg` (IERS's own GeoPackage)
+- [x] **Milestone 3: SQLite Database Engine & Incremental Migrations**
+  - FastAPI backend uses `database/emergency_db.sqlite3` via SQLAlchemy async
+- [x] **Milestone 4: Constrained A* Routing Engine**
 - [x] **Milestone 5: Dynamic Traffic Simulation Engine**
-  - Congestion penalty modeling and rush-hour injection.
-  - Emergency priority green corridor travel-time reduction.
 - [x] **Milestone 6: Ambulance Allocation & Concurrent Dispatch Manager**
-  - Multi-criteria triage dispatch (ALS, BLS, Flyer matching).
-  - ICU capacity and hospital triage integration.
-  - AsyncIO lock preventing race conditions and double-dispatch.
-- [x] **Milestone 7: FastAPI REST & WebSocket Server**
-  - Endpoints for network inspection, ambulances, hospitals, route calculation, and traffic modification.
-  - Real-time WebSocket broadcasting of dispatch events.
-- [x] **Milestone 8: Modern Logistics/Emergency Dispatch UI**
-  - Professional UI styled after reference designs (GlobeTrans / Koryear).
-  - Responsive layout with Leaflet map, dispatch telemetry drawer, and incident creation modal.
-- [x] **Milestone 9: End-to-End Testing & Verification**
-  - Pytest automated test suite passing 100% (5/5 tests).
-  - End-to-end incident dispatch verified on real GIS road geometry.
-- [x] **Milestone 10: Git Commit & GitHub Push Verification**
-  - Clean repository with secrets excluded via `.gitignore`.
-  - Pushed to `git@github.com:Ankush-learning/team-04-miniproject.git`.
+- [x] **Milestone 7: FastAPI REST & WebSocket Server** — running at `http://127.0.0.1:8000`
+- [x] **Milestone 8: World-Class SaaS UI/UX Redesign** (Linear, Apple, Airbnb, Duolingo, Stripe)
+  - Analytics section with PostGIS validation panel
+  - Architecture section linked from nav
+- [x] **Milestone 9: End-to-End Testing** — 5/5 pytest tests PASSING
+- [x] **Milestone 10: Git Commits & GitHub Push**
+- [x] **Milestone 11: PostGIS GIS Implementation (IERS-owned database)**
+  - All 8 SQL scripts executed against `iers_db` on `iers-postgis`
+  - Routing verified: NODE_567 → NODE_473 = 34.39 s, 18 hops, 321.5 m
+  - 6 GiST spatial indexes, 100% geometry validity, SRID 4326 consistent
+
+## GIS Validation — IERS iers_db (Verified)
+| Check | Result |
+|---|---|
+| Database identity | `iers_db` / `iers_user` ✅ |
+| Road nodes | 1,282 / 100% valid ✅ |
+| Road edges | 2,267 / 100% valid ✅ |
+| SRID consistency | All SRID 4326 ✅ |
+| GiST indexes | 6 indexes ✅ |
+| Total road km | 67.21 km ✅ |
+| Nearest-node function | Operational ✅ |
+| Dijkstra routing | 34.39 s, 18 hops ✅ |
 
 ## Database Protection Compliance
-- Incremental migrations enabled.
-- Zero data loss or destruction of original OSM/GIS datasets in `Documents`.
-- Original coordinates preserved.
+- IERS operates on `iers_db` (iers-postgis, port 5434) only.
+- GeoPilot's `geopilot-postgis` container is not modified.
+- Original OSM GeoPackage source files preserved unmodified.
+- Zero destructive operations on any existing datasets.
 
 ## Latest Commit Hash
-- `a1c387ef24dd792b221463c01a316c81ad799715` (Pushed to `origin/main`)
+- TBD after current commit push

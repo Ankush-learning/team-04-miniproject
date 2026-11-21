@@ -1,53 +1,40 @@
 -- ============================================================================
--- 06_network_analysis.sql
--- Intelligent Emergency Response System (IERS)
--- Spatial Network Analysis, Buffer Zones, & Nearest Facility Queries
+-- 06_network_analysis.sql — IERS
+-- Spatial functions and analysis views on iers_db
 -- ============================================================================
+SET search_path TO iers, public;
 
-SET search_path TO emergency, public;
-
--- Query 1: Nearest Road Node to any Incident Coordinate (KNN Distance Operator <->)
--- Finds closest network intersection within sub-millisecond execution
-CREATE OR REPLACE FUNCTION emergency.find_nearest_node(
-    p_lon DOUBLE PRECISION,
-    p_lat DOUBLE PRECISION
-) 
-RETURNS TABLE (
-    node_id VARCHAR(64),
-    name VARCHAR(128),
-    distance_meters DOUBLE PRECISION
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        n.node_id,
-        n.name,
-        ST_Distance(n.geog, ST_SetSRID(ST_MakePoint(p_lon, p_lat), 4326)::geography) AS distance_meters
-    FROM emergency.road_network_nodes n
+-- Function: find nearest network node to a lat/lon coordinate
+CREATE OR REPLACE FUNCTION iers.find_nearest_node(p_lat FLOAT, p_lon FLOAT)
+RETURNS TABLE(node_id TEXT, name TEXT, dist_m FLOAT)
+LANGUAGE SQL STABLE AS $$
+    SELECT n.node_id, n.name,
+           ST_Distance(n.geom::GEOGRAPHY, ST_SetSRID(ST_MakePoint(p_lon, p_lat),4326)::GEOGRAPHY) AS dist_m
+    FROM iers.road_network_nodes n
     ORDER BY n.geom <-> ST_SetSRID(ST_MakePoint(p_lon, p_lat), 4326)
     LIMIT 1;
-END;
-$$ LANGUAGE plpgsql STABLE;
+$$;
 
--- Query 2: 500-Meter Rapid Response Hospital Coverage Buffers
-CREATE OR REPLACE VIEW emergency.v_hospital_coverage_500m AS
-SELECT 
-    hospital_id,
-    name,
-    icu_available,
-    trauma_level,
-    ST_Buffer(geom::geography, 500)::geometry AS coverage_geom
-FROM emergency.hospitals;
-
--- Query 3: Road Connectivity Density (Degree Centrality per Node)
-CREATE OR REPLACE VIEW emergency.v_node_centrality AS
-SELECT 
+-- View: node degree centrality (how many edges connect to each node)
+CREATE OR REPLACE VIEW iers.v_node_centrality AS
+SELECT
     n.node_id,
     n.name,
-    COUNT(e.edge_id) AS connected_edges,
-    n.geom
-FROM emergency.road_network_nodes n
-JOIN emergency.road_network_edges e 
-    ON n.node_id = e.source_id OR n.node_id = e.target_id
-GROUP BY n.node_id, n.name, n.geom
-ORDER BY connected_edges DESC;
+    n.geom,
+    COUNT(e.edge_id) AS degree
+FROM iers.road_network_nodes n
+LEFT JOIN iers.road_network_edges e
+    ON e.source_id = n.node_id OR e.target_id = n.node_id
+GROUP BY n.node_id, n.name, n.geom;
+
+-- View: hospital 500m coverage zones
+CREATE OR REPLACE VIEW iers.v_hospital_coverage_500m AS
+SELECT
+    h.hospital_id,
+    h.name,
+    ST_Buffer(h.geom::GEOGRAPHY, 500)::GEOMETRY AS coverage_geom
+FROM iers.hospitals h;
+
+-- Verify
+SELECT proname FROM pg_proc WHERE pronamespace = (SELECT oid FROM pg_namespace WHERE nspname='iers') AND proname LIKE 'find_%';
+SELECT viewname FROM pg_views WHERE schemaname = 'iers';

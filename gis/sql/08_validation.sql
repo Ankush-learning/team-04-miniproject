@@ -1,49 +1,67 @@
 -- ============================================================================
--- 08_validation.sql
--- Intelligent Emergency Response System (IERS)
--- Comprehensive GIS Data Quality, SRID, Validity, & Integrity Audit
+-- 08_validation.sql — IERS
+-- Verifies the entire iers_db GIS implementation
 -- ============================================================================
+SET search_path TO iers, public;
 
-SET search_path TO emergency, public;
+-- [1] Confirm database identity
+SELECT current_database() AS database, current_user AS user_role,
+       'IERS — independent from GeoPilot' AS project;
 
--- 1. Check SRID Consistency (Must be 4326 for all layers)
-SELECT 
-    f_table_name,
-    f_geometry_column,
-    srid,
-    type
+-- [2] SRID consistency check
+SELECT f_table_schema, f_table_name, f_geometry_column, srid, type
 FROM geometry_columns
-WHERE f_table_schema = 'emergency';
+WHERE f_table_schema = 'iers'
+ORDER BY f_table_name;
 
--- 2. Check Geometry Validity (ST_IsValid = TRUE, ST_IsEmpty = FALSE)
-SELECT 
-    'road_network_nodes' AS layer,
-    COUNT(*) AS total_features,
-    COUNT(*) FILTER (WHERE ST_IsValid(geom) = FALSE) AS invalid_geometries,
-    COUNT(*) FILTER (WHERE ST_IsEmpty(geom) = TRUE) AS empty_geometries
-FROM emergency.road_network_nodes
-UNION ALL
-SELECT 
-    'road_network_edges' AS layer,
-    COUNT(*) AS total_features,
-    COUNT(*) FILTER (WHERE ST_IsValid(geom) = FALSE) AS invalid_geometries,
-    COUNT(*) FILTER (WHERE ST_IsEmpty(geom) = TRUE) AS empty_geometries
-FROM emergency.road_network_edges;
+-- [3] Geometry validity
+SELECT tbl, total, valid, (total - valid) AS invalid FROM (
+    SELECT 'road_network_nodes' AS tbl, COUNT(*) AS total,
+           SUM(CASE WHEN ST_IsValid(geom) THEN 1 ELSE 0 END) AS valid
+    FROM iers.road_network_nodes
+    UNION ALL
+    SELECT 'road_network_edges', COUNT(*),
+           SUM(CASE WHEN ST_IsValid(geom) THEN 1 ELSE 0 END)
+    FROM iers.road_network_edges WHERE geom IS NOT NULL
+    UNION ALL
+    SELECT 'hospitals', COUNT(*),
+           SUM(CASE WHEN ST_IsValid(geom) THEN 1 ELSE 0 END)
+    FROM iers.hospitals
+    UNION ALL
+    SELECT 'ambulances', COUNT(*),
+           SUM(CASE WHEN ST_IsValid(geom) THEN 1 ELSE 0 END)
+    FROM iers.ambulances
+) sub ORDER BY tbl;
 
--- 3. Check Bounding Box Extents of imported network
-SELECT 
-    ST_Extent(geom) AS road_network_bounding_box,
-    ST_XMin(ST_Extent(geom)) AS min_lon,
-    ST_XMax(ST_Extent(geom)) AS max_lon,
-    ST_YMin(ST_Extent(geom)) AS min_lat,
-    ST_YMax(ST_Extent(geom)) AS max_lat
-FROM emergency.road_network_edges;
+-- [4] Network bounding box
+SELECT ST_AsText(ST_Envelope(ST_Collect(geom))) AS bounding_box
+FROM iers.road_network_nodes;
 
--- 4. Test Sample Shortest-Path Route Execution
-SELECT 
-    seq,
-    node_id,
-    road_name,
-    ROUND(cost_seconds::numeric, 2) AS duration_seconds,
-    ROUND(distance_meters::numeric, 1) AS distance_meters
-FROM emergency.calculate_constrained_route('NODE_567', 'NODE_473', 2.5, 3.5, 2.2);
+-- [5] Spatial indexes
+SELECT schemaname, tablename, indexname
+FROM pg_indexes
+WHERE schemaname = 'iers' AND indexname LIKE 'iers_idx%'
+ORDER BY tablename;
+
+-- [6] Network statistics
+SELECT
+    COUNT(*) AS total_edges,
+    COUNT(DISTINCT source_id) AS distinct_sources,
+    ROUND(AVG(distance_meters)::numeric, 2) AS avg_dist_m,
+    ROUND(SUM(distance_meters/1000.0)::numeric, 2) AS total_road_km,
+    ROUND(MAX(distance_meters)::numeric, 2) AS max_edge_m
+FROM iers.road_network_edges;
+
+-- [7] Nearest-node function test
+SELECT * FROM iers.find_nearest_node(15.368637, 75.121066);  -- AMB-01 location
+SELECT * FROM iers.find_nearest_node(15.369641, 75.123161);  -- KIMS
+
+-- [8] Routing: NODE_567 → NODE_473 (ambulance to hospital)
+WITH route AS (
+    SELECT * FROM iers.find_shortest_path('NODE_567', 'NODE_473', 25)
+)
+SELECT
+    COUNT(*) AS path_hops,
+    MAX(cum_cost_s) AS total_cost_seconds,
+    MAX(cum_dist_m) AS total_dist_meters
+FROM route;

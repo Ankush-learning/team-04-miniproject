@@ -1,27 +1,18 @@
 -- ============================================================================
 -- 01_database_setup.sql
 -- Intelligent Emergency Response System (IERS)
--- Production PostGIS & pgRouting Extension Initialization
+-- Target: iers_db on iers-postgis container (port 5434)
+-- Owner: iers_user  —  completely independent from GeoPilot
 -- ============================================================================
 
--- Create database if not exists (Execute as postgres superuser)
--- CREATE DATABASE emergency_db WITH ENCODING 'UTF8';
-
--- Connect to emergency_db
-\connect emergency_db;
-
--- 1. Enable Core Spatial Extensions
+-- Enable required extensions in iers_db
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS postgis_topology;
-CREATE EXTENSION IF NOT EXISTS postgis_raster;
+CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
 
--- 2. Enable Network Routing Extensions (pgRouting)
-CREATE EXTENSION IF NOT EXISTS pgrouting;
+-- Create IERS schema namespace (all IERS GIS objects live here)
+CREATE SCHEMA IF NOT EXISTS iers AUTHORIZATION iers_user;
 
--- 3. Utility Extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Verify spatial capabilities and versions
-SELECT 
-    postgis_full_version() AS postgis_version,
-    pgr_version() AS pgrouting_version;
+-- Verify
+SELECT extname, extversion FROM pg_extension WHERE extname IN ('postgis','postgis_topology');
+SELECT current_database() AS db, current_user AS usr;

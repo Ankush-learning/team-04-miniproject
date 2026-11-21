@@ -1,68 +1,66 @@
 -- ============================================================================
--- 07_emergency_routing.sql
--- Intelligent Emergency Response System (IERS)
--- Constrained Dijkstra Routing via pgRouting (pgr_dijkstra)
--- Accounts for Vehicle Height, Width, Bridge Weight, & Live Congestion
+-- 07_emergency_routing.sql — IERS
+-- Shortest path using recursive CTE (depth-limited, safe for PG17)
 -- ============================================================================
+SET search_path TO iers, public;
 
-SET search_path TO emergency, public;
-
-CREATE OR REPLACE FUNCTION emergency.calculate_constrained_route(
-    p_start_node VARCHAR(64),
-    p_end_node VARCHAR(64),
-    p_veh_height DOUBLE PRECISION DEFAULT 2.5,
-    p_veh_weight DOUBLE PRECISION DEFAULT 4.0,
-    p_veh_width DOUBLE PRECISION DEFAULT 2.2
+CREATE OR REPLACE FUNCTION iers.find_shortest_path(
+    p_start_node TEXT,
+    p_end_node   TEXT,
+    p_max_hops   INT DEFAULT 25
 )
-RETURNS TABLE (
-    seq INTEGER,
-    node_id VARCHAR(64),
-    edge_id VARCHAR(64),
-    road_name VARCHAR(128),
-    cost_seconds DOUBLE PRECISION,
-    distance_meters DOUBLE PRECISION,
-    geom GEOMETRY
-) AS $$
-DECLARE
-    v_start_id INTEGER;
-    v_end_id INTEGER;
-    v_sql TEXT;
-BEGIN
-    -- Resolve integer vertex IDs for pgRouting
-    SELECT vertex_id INTO v_start_id FROM emergency.vertices_map WHERE node_id = p_start_node;
-    SELECT vertex_id INTO v_end_id FROM emergency.vertices_map WHERE node_id = p_end_node;
+RETURNS TABLE(
+    step_no    INT,
+    node_id    TEXT,
+    cum_cost_s FLOAT,
+    cum_dist_m FLOAT
+)
+LANGUAGE SQL STABLE AS $$
+    WITH RECURSIVE path_search(
+        current_node, cum_cost, cum_dist, visited, depth
+    ) AS (
+        SELECT
+            p_start_node::TEXT,
+            0.0::FLOAT,
+            0.0::FLOAT,
+            ARRAY[p_start_node::TEXT],
+            0
+        UNION ALL
+        SELECT
+            e.target_id,
+            ps.cum_cost + COALESCE(e.cost_seconds, 10.0),
+            ps.cum_dist + COALESCE(e.distance_meters, 50.0),
+            ps.visited || e.target_id,
+            ps.depth + 1
+        FROM path_search ps
+        JOIN iers.road_network_edges e ON e.source_id = ps.current_node
+        WHERE NOT e.target_id = ANY(ps.visited)
+          AND ps.depth < p_max_hops
+    ),
+    best_path AS (
+        SELECT visited, cum_cost, cum_dist
+        FROM path_search
+        WHERE current_node = p_end_node
+        ORDER BY cum_cost
+        LIMIT 1
+    )
+    SELECT
+        ordinality::INT        AS step_no,
+        node_val               AS node_id,
+        ROUND(bp.cum_cost::numeric, 2)::FLOAT AS cum_cost_s,
+        ROUND(bp.cum_dist::numeric, 2)::FLOAT AS cum_dist_m
+    FROM best_path bp,
+         LATERAL unnest(bp.visited) WITH ORDINALITY AS t(node_val, ordinality)
+    ORDER BY ordinality;
+$$;
 
-    IF v_start_id IS NULL OR v_end_id IS NULL THEN
-        RAISE EXCEPTION 'Start or End node not found in topology network';
-    END IF;
+-- Verify
+SELECT proname, pronargs FROM pg_proc
+WHERE pronamespace = (SELECT oid FROM pg_namespace WHERE nspname='iers')
+  AND proname = 'find_shortest_path';
 
-    -- Dynamic SQL filtering edges that violate clearance limits
-    v_sql := format(
-        'SELECT 
-            pgr_id AS id, 
-            source_vertex_id AS source, 
-            target_vertex_id AS target, 
-            cost_seconds AS cost, 
-            reverse_cost_seconds AS reverse_cost 
-         FROM emergency.road_network_edges
-         WHERE max_height_meters >= %s 
-           AND max_weight_tons >= %s 
-           AND width_meters >= %s',
-        p_veh_height, p_veh_weight, p_veh_width
-    );
-
-    RETURN QUERY
-    SELECT 
-        d.seq,
-        vm.node_id,
-        e.edge_id,
-        e.road_name,
-        d.cost AS cost_seconds,
-        COALESCE(e.distance_meters, 0.0) AS distance_meters,
-        COALESCE(e.geom, vm.geom) AS geom
-    FROM pgr_dijkstra(v_sql, v_start_id, v_end_id, directed := true) d
-    LEFT JOIN emergency.vertices_map vm ON d.node = vm.vertex_id
-    LEFT JOIN emergency.road_network_edges e ON d.edge = e.pgr_id
-    ORDER BY d.seq;
-END;
-$$ LANGUAGE plpgsql STABLE;
+-- Quick smoke test
+SELECT COUNT(*) AS path_hops,
+       MAX(cum_cost_s) AS total_cost_s,
+       MAX(cum_dist_m) AS total_dist_m
+FROM iers.find_shortest_path('NODE_567', 'NODE_473', 25);
