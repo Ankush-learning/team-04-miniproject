@@ -1818,9 +1818,9 @@
     }
 
     function syncActiveRoutesFromCache() {
-      if (!cached || !cached.incidents) return;
+      if (typeof cachedIncidents === 'undefined' || !cachedIncidents) return;
       const activeIds = new Set();
-      cached.incidents.forEach(inc => {
+      cachedIncidents.forEach(inc => {
         if (!['COMPLETED', 'CANCELLED'].includes(inc.status) && inc.active_route_json && inc.active_route_json.coordinates) {
           activeIds.add(inc.id);
           drawLiveSimRoute(inc.id, inc.active_route_json.coordinates, inc.active_leg || 'LEG_1');
