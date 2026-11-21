@@ -254,7 +254,8 @@ async def operator_my_unit(db: AsyncSession = Depends(get_db), user: Dict[str, A
         text("""
             SELECT e.emergency_id::text AS id, e.incident_code, e.incident_type, e.severity AS priority,
                    e.status, e.latitude, e.longitude, e.description, e.eta_seconds,
-                   h.name AS hospital_name
+                   e.remaining_distance_m, e.active_leg, e.active_route_json,
+                   h.name AS hospital_name, h.latitude AS hosp_lat, h.longitude AS hosp_lon
             FROM public.emergencies e
             LEFT JOIN public.hospitals h ON h.hospital_id = e.target_hospital_id
             WHERE e.assigned_ambulance_id = CAST(:aid AS uuid) AND e.status NOT IN ('COMPLETED', 'CANCELLED')
