@@ -211,7 +211,7 @@ async def _run_autonomous_incident(eid: str):
             disp_id = (await db.execute(
                 text("""
                     INSERT INTO public.dispatches (emergency_id, ambulance_id, hospital_id, status)
-                    VALUES (CAST(:eid AS uuid), CAST(:aid AS uuid), CAST(:hid AS uuid), 'DISPATCHED')
+                    VALUES (CAST(:eid AS uuid), CAST(:aid AS uuid), CAST(:hid AS uuid), 'ACTIVE')
                     RETURNING dispatch_id::text
                 """),
                 {"eid": eid, "aid": aid, "hid": hid},
