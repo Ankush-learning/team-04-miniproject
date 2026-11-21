@@ -136,7 +136,7 @@ async def _drive_leg(eid: str, aid: str, coords: List[List[float]], total_dist_m
             "remaining_distance_m": round(rem_m, 1),
             "leg": leg_name,
         })
-        await asyncio.sleep(1.8)
+        await asyncio.sleep(1.2)
 
 
 async def _run_autonomous_incident(eid: str):
@@ -455,7 +455,7 @@ async def _simulation_loop():
         await asyncio.sleep(_stats["spawn_interval_s"])
 
 
-async def start_simulation(max_concurrent: int = 4, spawn_interval_s: int = 8) -> Dict[str, Any]:
+async def start_simulation(max_concurrent: int = 5, spawn_interval_s: int = 4) -> Dict[str, Any]:
     global _sim_running, _sim_loop_task
     if _sim_running:
         return get_simulation_status()

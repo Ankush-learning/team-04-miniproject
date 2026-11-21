@@ -1725,7 +1725,7 @@
         if (liveSimRunning) {
           await apiFetch('/api/v1/simulation/stop', { method: 'POST' });
         } else {
-          await apiFetch('/api/v1/simulation/start', { method: 'POST', body: JSON.stringify({ max_concurrent: 4, spawn_interval_s: 8 }) });
+          await apiFetch('/api/v1/simulation/start', { method: 'POST', body: JSON.stringify({ max_concurrent: 5, spawn_interval_s: 4 }) });
         }
         await syncLiveSimButton();
       } catch (e) { alert(e.message); }
@@ -1815,7 +1815,7 @@
         : (prev ? prev.deg : 0);
 
       if (prev && prev.raf) cancelAnimationFrame(prev.raf);
-      const state = { startLat, startLon, targetLat: lat, targetLon: lon, curLat: startLat, curLon: startLon, deg, leg, t0: performance.now(), dur: 1750, raf: null };
+      const state = { startLat, startLon, targetLat: lat, targetLon: lon, curLat: startLat, curLon: startLon, deg, leg, t0: performance.now(), dur: 1180, raf: null };
       liveAmbAnimState[ambId] = state;
 
       const icon = navArrowIcon(leg, deg);
