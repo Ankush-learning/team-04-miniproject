@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IERS — Next-Gen Autonomous Emergency Response SaaS</title>
+  <title>IERS — Intelligent Emergency Response Telematics</title>
 
-  <!-- Typography: Inter & JetBrains Mono (Pentagram-inspired precision) -->
+  <!-- Typography: Inter font family for crisp modern aesthetics -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -21,15 +21,25 @@
             mono: ['JetBrains Mono', 'monospace'],
           },
           colors: {
-            linear: {
-              bg: '#08090A',
-              card: '#101214',
-              surface: '#15171B',
-              border: 'rgba(255, 255, 255, 0.08)',
-              hover: 'rgba(255, 255, 255, 0.04)',
-              accent: '#5E6AD2',
-              accentHover: '#4F59BD'
+            app: {
+              canvas: '#F2F3F5',
+              surface: '#FFFFFF',
+              cardBorder: '#E6E8EC',
+              subtle: '#8C9199',
+              dark: '#111215',
+              accentLime: '#B8F432',
+              accentLimeDark: '#95D40F',
+              accentPurple: '#8E5FF5',
+              accentPurpleLight: '#F2EBFF',
+              accentBlue: '#2F68FE',
+              accentAmber: '#FF9E1B',
+              accentRose: '#FF3B30'
             }
+          },
+          boxShadow: {
+            'window': '0 24px 60px -12px rgba(17, 24, 39, 0.18), 0 8px 24px -4px rgba(17, 24, 39, 0.08)',
+            'card': '0 4px 16px -2px rgba(17, 24, 39, 0.04), 0 2px 6px -1px rgba(17, 24, 39, 0.02)',
+            'float': '0 12px 36px -6px rgba(17, 24, 39, 0.12), 0 4px 12px -2px rgba(17, 24, 39, 0.06)'
           }
         }
       }
@@ -44,318 +54,423 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* Custom Scrollbar & Aesthetics */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    /* Custom Scrollbar for smooth minimal aesthetic */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+    ::-webkit-scrollbar-thumb { background: #E2E4E9; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #CBD0D8; }
 
-    .glass-panel {
-      background: rgba(16, 18, 20, 0.85);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    /* Map styling to match light muted high-fashion cartography */
+    .leaflet-container {
+      background: #F4F5F7 !important;
+      font-family: 'Inter', sans-serif !important;
     }
-    .glass-input {
-      background: rgba(21, 23, 27, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .glass-input:focus {
-      border-color: #5E6AD2;
-      box-shadow: 0 0 0 2px rgba(94, 106, 210, 0.2);
+    .leaflet-tile {
+      filter: grayscale(100%) contrast(96%) brightness(102%);
     }
 
-    /* Cinematic Glows & Animations (Apple/Framer) */
-    .glow-accent {
-      box-shadow: 0 0 40px -10px rgba(94, 106, 210, 0.35);
+    /* Pulse animation for active dispatch */
+    @keyframes subtlePulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(184, 244, 50, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(184, 244, 50, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(184, 244, 50, 0); }
     }
-    .hero-glow {
-      background: radial-gradient(circle at 50% 0%, rgba(94, 106, 210, 0.15) 0%, rgba(8, 9, 10, 0) 70%);
+    .status-pulse-lime {
+      animation: subtlePulse 2s infinite;
     }
 
-    /* Pulse effects */
-    @keyframes sirenPulse {
-      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
-      70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    /* Custom Leaflet popup */
+    .custom-popup .leaflet-popup-content-wrapper {
+      background: #FFFFFF;
+      border-radius: 14px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+      padding: 6px;
+      border: 1px solid #E6E8EC;
     }
-    .siren-active {
-      animation: sirenPulse 1.8s infinite;
+    .custom-popup .leaflet-popup-tip {
+      background: #FFFFFF;
+    }
+
+    /* Progress step indicator bar */
+    .progress-track {
+      background: #E8EAEF;
+      height: 4px;
+      border-radius: 9999px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-fill {
+      background: #B8F432;
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
   </style>
 </head>
-<body class="bg-[#08090A] text-slate-100 font-sans antialiased overflow-x-hidden selection:bg-[#5E6AD2] selection:text-white">
+<body class="bg-[#5B6069] min-h-screen flex items-center justify-center p-3 sm:p-6 text-[#1A1C20] antialiased selection:bg-[#B8F432] selection:text-black">
 
   <!-- ========================================================================= -->
-  <!-- TOP NAVIGATION BAR (Linear & MUJI Inspired Minimalism)                    -->
+  <!-- MAIN APP WINDOW CONTAINER (Browser / Mac Frame with Window Shadows)       -->
   <!-- ========================================================================= -->
-  <header class="fixed top-0 left-0 right-0 h-14 border-b border-white/5 bg-[#08090A]/85 backdrop-blur-md z-50 flex items-center justify-between px-6">
-    <div class="flex items-center gap-6">
-      <div class="flex items-center gap-2.5 cursor-pointer" onclick="scrollToTop()">
-        <div class="w-7 h-7 rounded-lg bg-[#5E6AD2] flex items-center justify-center text-white shadow-md shadow-[#5E6AD2]/30">
-          <i data-lucide="shield-alert" class="w-4 h-4"></i>
+  <div class="w-full max-w-[1520px] h-[94vh] min-h-[780px] bg-white rounded-3xl shadow-window flex flex-col overflow-hidden border border-white/60">
+
+    <!-- Top Window Chrome / Browser Bar -->
+    <header class="h-12 bg-white border-b border-[#F0F1F3] px-5 flex items-center justify-between select-none">
+      <!-- Traffic Light Controls & Navigation Arrows -->
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-2">
+          <div class="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E]"></div>
+          <div class="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123]"></div>
+          <div class="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29]"></div>
         </div>
-        <span class="font-semibold text-sm tracking-tight text-white flex items-center gap-1.5">
-          IERS <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-slate-300">v2.4 Core</span>
-        </span>
+        <div class="flex items-center gap-2 text-[#9A9EA6]">
+          <button class="hover:text-black transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+          <button class="hover:text-black transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+        </div>
       </div>
 
-      <!-- Navigation Links -->
-      <nav class="hidden md:flex items-center gap-1 text-xs font-medium text-slate-400">
-        <a href="#dispatch-console" class="px-3 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition">Live Console</a>
-        <a href="#landing-features" class="px-3 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition">Architecture</a>
-        <a href="#analytics-view" class="px-3 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition">Analytics</a>
-        <button onclick="startOnboarding()" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition flex items-center gap-1.5">
-          <i data-lucide="compass" class="w-3.5 h-3.5 text-[#5E6AD2]"></i> Operator Walkthrough
+      <!-- Address / Status Pill -->
+      <div class="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-[#F6F7F9] border border-[#ECEEF1] text-[12px] text-[#555962] font-medium tracking-tight">
+        <i data-lucide="lock" class="w-3 h-3 text-[#7B8089]"></i>
+        <span>https://iers-telematics.gov.in</span>
+        <span class="text-[#A2A6AF]">·</span>
+        <span class="text-[#2F68FE] font-mono text-[11px] font-semibold">Hubballi–Dharwad Metro</span>
+        <span class="w-1.5 h-1.5 rounded-full bg-[#27C93F]"></span>
+      </div>
+
+      <!-- Top Right Window Actions -->
+      <div class="flex items-center gap-3 text-[#7D828C]">
+        <button onclick="openUniversalSearch()" title="Search (⌘K)" class="p-1.5 rounded-lg hover:bg-[#F2F3F5] hover:text-black transition">
+          <i data-lucide="search" class="w-4 h-4"></i>
         </button>
-      </nav>
-    </div>
-
-    <div class="flex items-center gap-3">
-      <!-- Universal Airbnb-Inspired Search Trigger -->
-      <div onclick="openUniversalSearch()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 text-xs cursor-pointer transition">
-        <i data-lucide="search" class="w-3.5 h-3.5"></i>
-        <span class="hidden sm:inline">Search units, nodes, hospitals...</span>
-        <kbd class="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded border border-white/10">⌘K</kbd>
-      </div>
-
-      <div class="h-4 w-px bg-white/10"></div>
-
-      <!-- Quick Emergency Call Action Button -->
-      <button onclick="openIncidentModal()" class="px-3.5 py-1.5 bg-[#5E6AD2] hover:bg-[#4F59BD] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-[#5E6AD2]/30 transition">
-        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-        New Incident
-      </button>
-    </div>
-  </header>
-
-  <!-- ========================================================================= -->
-  <!-- 1. CINEMATIC LANDING SHOWCASE (Apple + Stripe + Aesop Aesthetic)          -->
-  <!-- ========================================================================= -->
-  <section class="relative pt-32 pb-20 px-6 border-b border-white/5 hero-glow flex flex-col items-center text-center">
-    <!-- Floating status pill -->
-    <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-panel border border-white/10 text-xs font-mono text-slate-300 mb-8">
-      <span class="flex h-2 w-2 relative">
-        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-      </span>
-      <span>1,282 Topological Nodes &bull; 2,267 Road Edges Active</span>
-    </div>
-
-    <!-- Monumental Typography (Pentagram & Apple influence) -->
-    <h1 class="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight max-w-4xl text-white leading-[1.08] mb-6">
-      Precision dispatch for <br class="hidden sm:block">
-      <span class="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">zero-latency emergency response.</span>
-    </h1>
-
-    <p class="text-slate-400 text-base sm:text-lg max-w-2xl font-normal leading-relaxed mb-10">
-      An enterprise autonomous dispatch platform executing constrained Dijkstra routing, real-time arterial congestion mitigation, and physical road clearance verification.
-    </p>
-
-    <!-- CTAs -->
-    <div class="flex flex-wrap items-center justify-center gap-4">
-      <a href="#dispatch-console" class="px-6 py-3 rounded-xl bg-white text-slate-950 font-semibold text-sm hover:bg-slate-100 transition shadow-lg shadow-white/10 flex items-center gap-2">
-        Launch Live Console <i data-lucide="arrow-right" class="w-4 h-4"></i>
-      </a>
-      <button onclick="startOnboarding()" class="px-6 py-3 rounded-xl glass-panel text-slate-300 hover:text-white font-medium text-sm transition flex items-center gap-2">
-        <i data-lucide="play-circle" class="w-4 h-4"></i> Operator Guided Setup
-      </button>
-    </div>
-
-    <!-- Key Metrics Ribbon (Stripe / Linear) -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl w-full mt-16 pt-12 border-t border-white/5 text-left">
-      <div class="glass-panel p-4 rounded-xl">
-        <p class="text-xs font-mono text-slate-400">ROUTING LATENCY</p>
-        <p class="text-2xl font-bold text-white mt-1">0.4 <span class="text-xs font-normal text-slate-400">ms</span></p>
-        <p class="text-[11px] text-emerald-400 mt-0.5">Sub-millisecond A*</p>
-      </div>
-      <div class="glass-panel p-4 rounded-xl">
-        <p class="text-xs font-mono text-slate-400">CONCURRENCY SAFETY</p>
-        <p class="text-2xl font-bold text-white mt-1">100%</p>
-        <p class="text-[11px] text-emerald-400 mt-0.5">AsyncIO Lock Protected</p>
-      </div>
-      <div class="glass-panel p-4 rounded-xl">
-        <p class="text-xs font-mono text-slate-400">ACTIVE FLEET</p>
-        <p class="text-2xl font-bold text-white mt-1">3 <span class="text-xs font-normal text-slate-400">Units</span></p>
-        <p class="text-[11px] text-slate-400 mt-0.5">ALS, BLS, Rapid Flyer</p>
-      </div>
-      <div class="glass-panel p-4 rounded-xl">
-        <p class="text-xs font-mono text-slate-400">EMERGENCY CORRIDOR</p>
-        <p class="text-2xl font-bold text-white mt-1">-60%</p>
-        <p class="text-[11px] text-emerald-400 mt-0.5">Delay Dampening Active</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========================================================================= -->
-  <!-- 2. MAIN APPLICATION WORKSPACE — LINEAR + NOTION DASHBOARD LAYOUT          -->
-  <!-- ========================================================================= -->
-  <section id="dispatch-console" class="relative max-w-7xl mx-auto px-6 py-12">
-    
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h2 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-          Operations & Telematics Console
-          <span class="text-xs font-mono font-normal px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE METROPOLITAN FEED</span>
-        </h2>
-        <p class="text-xs text-slate-400 mt-0.5">Hubballi - Vidyanagar Academic & Healthcare Corridor</p>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <!-- Live Rush Hour Trigger -->
-        <button onclick="simulateRushHour()" class="px-3.5 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-medium flex items-center gap-1.5 transition">
-          <i data-lucide="flame" class="w-3.5 h-3.5 text-rose-400"></i> Inject Arterial Rush Hour
+        <button onclick="openIncidentModal()" title="New Emergency Call" class="p-1.5 rounded-lg hover:bg-[#F2F3F5] hover:text-black transition">
+          <i data-lucide="plus" class="w-4 h-4"></i>
         </button>
-        <!-- Reset corridor -->
-        <button onclick="resetCorridors()" class="px-3.5 py-1.5 rounded-lg glass-panel hover:bg-white/10 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition">
-          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Clear Traffic
+        <button onclick="openLiveInfoModal()" title="System Diagnostics" class="p-1.5 rounded-lg hover:bg-[#F2F3F5] hover:text-black transition">
+          <i data-lucide="layers" class="w-4 h-4"></i>
         </button>
       </div>
-    </div>
+    </header>
 
-    <!-- Main Workspace Grid: Telematics Sidebar + Interactive Leaflet GIS Canvas -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[720px]">
-      
-      <!-- Left Dispatch & Fleet Panel (Linear style: cards, clean status badges) -->
-      <div class="lg:col-span-4 flex flex-col gap-4 h-full">
-        
-        <!-- Segment Tabs -->
-        <div class="p-1 glass-panel rounded-xl flex items-center text-xs font-medium text-slate-400">
-          <button id="tab-active" onclick="switchConsoleTab('active')" class="flex-1 py-1.5 rounded-lg bg-white/10 text-white font-semibold shadow-xs">Active Dispatches</button>
-          <button id="tab-fleet" onclick="switchConsoleTab('fleet')" class="flex-1 py-1.5 rounded-lg hover:text-white transition">Fleet Units</button>
-          <button id="tab-hospitals" onclick="switchConsoleTab('hospitals')" class="flex-1 py-1.5 rounded-lg hover:text-white transition">Hospitals (ICU)</button>
+    <!-- Main Workspace: Vertical Dock + Side Telematics Panel + Center GIS Map Canvas -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+      <!-- ===================================================================== -->
+      <!-- 1. LEFT NARROW ICON DOCK (Clean, High-Aesthetic Navigation)           -->
+      <!-- ===================================================================== -->
+      <aside class="w-16 bg-white border-r border-[#F0F1F3] flex flex-col items-center py-5 justify-between z-20">
+        <!-- Brand / App Logo -->
+        <div class="flex flex-col items-center gap-6">
+          <div class="w-10 h-10 rounded-2xl bg-[#111215] flex items-center justify-center text-white cursor-pointer hover:scale-105 transition shadow-sm" onclick="showActiveIncidentOverview()">
+            <i data-lucide="package" class="w-5 h-5 text-[#B8F432]"></i>
+          </div>
+
+          <!-- Navigation Dock Items -->
+          <nav class="flex flex-col items-center gap-3">
+            <button id="nav-dock-dispatch" onclick="setActiveDockView('dispatch')" title="Active Dispatches" class="w-10 h-10 rounded-xl flex items-center justify-center text-[#111215] bg-[#F2F3F5] transition">
+              <i data-lucide="navigation" class="w-4 h-4"></i>
+            </button>
+            <button id="nav-dock-fleet" onclick="setActiveDockView('fleet')" title="Ambulance Fleet" class="w-10 h-10 rounded-xl flex items-center justify-center text-[#8C9199] hover:bg-[#F2F3F5] hover:text-black transition">
+              <i data-lucide="truck" class="w-4 h-4"></i>
+            </button>
+            <button id="nav-dock-hospitals" onclick="setActiveDockView('hospitals')" title="Trauma Centres" class="w-10 h-10 rounded-xl flex items-center justify-center text-[#8C9199] hover:bg-[#F2F3F5] hover:text-black transition">
+              <i data-lucide="hospital" class="w-4 h-4"></i>
+            </button>
+            <button id="nav-dock-traffic" onclick="toggleRushHourSim()" title="Simulate Rush Hour" class="w-10 h-10 rounded-xl flex items-center justify-center text-[#8C9199] hover:bg-[#F2F3F5] hover:text-black transition">
+              <i data-lucide="flame" class="w-4 h-4"></i>
+            </button>
+          </nav>
         </div>
 
-        <!-- Telematics Scroll Container -->
-        <div id="telematics-list" class="flex-1 overflow-y-auto space-y-3 pr-1">
-          <!-- Populated dynamically via JS -->
+        <!-- Bottom Utility Icons -->
+        <div class="flex flex-col items-center gap-3 text-[#8C9199]">
+          <button onclick="startOnboarding()" title="Operator Guide" class="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[#F2F3F5] hover:text-black transition">
+            <i data-lucide="help-circle" class="w-4 h-4"></i>
+          </button>
+          <button onclick="openLiveInfoModal()" title="PostGIS Telemetry" class="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[#F2F3F5] hover:text-black transition">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+          </button>
+          <button onclick="zoomToHubliDharwad()" title="Reset Metro Extent" class="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[#F2F3F5] hover:text-black transition">
+            <i data-lucide="crosshair" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </aside>
+
+      <!-- ===================================================================== -->
+      <!-- 2. SIDE TELEMATICS PANEL (Matches Reference 'Packages' List)          -->
+      <!-- ===================================================================== -->
+      <section class="w-96 bg-white border-r border-[#F0F1F3] flex flex-col z-10 select-none">
+        <!-- Header: Title + Context Menu -->
+        <div class="p-6 pb-4 flex items-center justify-between">
+          <h1 id="panel-title" class="text-2xl font-bold tracking-tight text-[#111215]">Dispatches</h1>
+          <button onclick="openIncidentModal()" class="w-9 h-9 rounded-2xl border border-[#E6E8EC] hover:bg-[#F5F6F8] flex items-center justify-center text-[#6B7280] transition">
+            <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+          </button>
         </div>
 
-        <!-- System Diagnostics Card -->
-        <div class="glass-panel p-4 rounded-xl border border-white/5 flex flex-col gap-2">
-          <div class="flex items-center justify-between text-xs">
-            <span class="text-slate-400 font-medium">Fleet Readiness Ratio</span>
-            <span class="font-mono text-emerald-400 font-semibold" id="readiness-pct">100% Available</span>
-          </div>
-          <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-            <div id="readiness-bar" class="h-full bg-[#5E6AD2] rounded-full transition-all duration-500" style="width: 100%;"></div>
-          </div>
-          <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-white/5">
-            <span>WebSocket Stream</span>
-            <span class="flex items-center gap-1 text-emerald-400">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Connected
-            </span>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Right GIS Map Centerpiece (MUJI Minimalist frame + High Precision Leaflet) -->
-      <div class="lg:col-span-8 relative rounded-2xl overflow-hidden glass-panel border border-white/10 flex flex-col">
-        
-        <!-- Map Canvas -->
-        <div id="map" class="flex-1 w-full h-full z-0"></div>
-
-        <!-- Floating Active Route Telemetry Drawer (Apple / Koryear Reference Pattern) -->
-        <div id="active-route-drawer" class="absolute bottom-4 left-4 right-4 glass-panel p-4 rounded-xl border border-white/15 z-[1000] hidden flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xl">
-          <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-xl bg-[#5E6AD2]/20 border border-[#5E6AD2]/30 flex items-center justify-center text-[#5E6AD2]">
-              <i data-lucide="siren" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-white font-mono" id="drawer-callsign">PARAMEDIC-ALS-01</span>
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">EN ROUTE</span>
-              </div>
-              <p class="text-xs text-slate-300 font-medium mt-0.5" id="drawer-incident">Severe Cardiac Arrest &bull; Vidyanagar Quad</p>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-6 text-xs">
-            <div>
-              <p class="text-[10px] font-mono text-slate-400 uppercase">Estimated ETA</p>
-              <p class="text-sm font-bold text-emerald-400 font-mono" id="drawer-eta">0.5 mins</p>
-            </div>
-            <div class="h-6 w-px bg-white/10"></div>
-            <div>
-              <p class="text-[10px] font-mono text-slate-400 uppercase">Destination Hub</p>
-              <p class="text-sm font-semibold text-white" id="drawer-hospital">KIMS Medical Trauma Hub</p>
-            </div>
-            <button onclick="dismissActiveRoute()" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-medium transition">
-              Dismiss
+        <!-- Tab Toggle Pill (On the way / Delivered) -->
+        <div class="px-6 pb-4">
+          <div class="p-1 bg-[#F4F5F7] rounded-2xl flex items-center text-xs font-semibold">
+            <button id="tab-btn-active" onclick="switchFilterTab('active')" class="flex-1 py-2.5 rounded-xl bg-[#111215] text-white shadow-sm transition">
+              On the way
+            </button>
+            <button id="tab-btn-history" onclick="switchFilterTab('history')" class="flex-1 py-2.5 rounded-xl text-[#6B7280] hover:text-black transition">
+              Completed
             </button>
           </div>
         </div>
 
-      </div>
+        <!-- Scrollable Dispatch & Telematics Cards Container -->
+        <div id="dispatch-cards-list" class="flex-1 overflow-y-auto px-6 py-1 space-y-4">
+          <!-- Populated dynamically via JS matching reference card style -->
+        </div>
+
+        <!-- Bottom Summary Bar in Side Panel -->
+        <div class="p-5 border-t border-[#F0F1F3] bg-[#FAFAFB] flex items-center justify-between text-xs text-[#6B7280]">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#B8F432]"></span>
+            <span class="font-medium text-[#111215]">29,385 Nodes Active</span>
+          </div>
+          <span class="font-mono text-[11px] text-[#8C9199]">PostGIS 3.5</span>
+        </div>
+      </section>
+
+      <!-- ===================================================================== -->
+      <!-- 3. MAIN GIS MAP CENTERPIECE (Leaflet + High-Fashion Minimal Carto)    -->
+      <!-- ===================================================================== -->
+      <main class="flex-1 relative bg-[#F4F5F7] overflow-hidden">
+        
+        <!-- Interactive Leaflet Canvas -->
+        <div id="map" class="w-full h-full z-0"></div>
+
+        <!-- Top Right Map Floating Controls (Search & Locate) -->
+        <div class="absolute top-6 right-6 z-[1000] flex items-center gap-2">
+          <button onclick="openUniversalSearch()" class="w-10 h-10 rounded-2xl bg-white shadow-card border border-[#E6E8EC] flex items-center justify-center text-[#111215] hover:bg-[#F9FAFB] transition">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </button>
+          <button onclick="zoomToHubliDharwad()" class="w-10 h-10 rounded-2xl bg-white shadow-card border border-[#E6E8EC] flex items-center justify-center text-[#111215] hover:bg-[#F9FAFB] transition">
+            <i data-lucide="locate" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Floating Destination Badge on Map (Reference: Stockholm pin) -->
+        <div id="map-target-pill" class="absolute top-8 left-10 z-[1000] pointer-events-none flex items-center gap-3">
+          <div class="w-3.5 h-3.5 rounded-full bg-[#111215] border-2 border-white shadow-md"></div>
+          <span id="map-target-title" class="text-3xl font-extrabold tracking-tight text-[#111215] drop-shadow-sm">
+            Hubballi–Dharwad
+          </span>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- 4. BOTTOM FLOATING TELEMETRICS CARD (Exact Match to Reference Bottom) -->
+        <!-- =================================================================== -->
+        <div id="bottom-detail-card" class="absolute bottom-6 left-6 right-6 max-w-4xl mx-auto bg-white/95 backdrop-blur-md rounded-3xl p-5 border border-[#E6E8EC] shadow-float z-[1000] flex flex-col gap-4">
+          
+          <!-- Top Row: Order ID / Incident Tag + Status Badge + Contact / Action -->
+          <div class="flex items-center justify-between pb-3 border-b border-[#F0F1F3]">
+            <div class="flex items-center gap-3">
+              <span id="detail-incident-id" class="text-sm font-bold text-[#111215] tracking-tight">Dispatch #29698-98971</span>
+              <span id="detail-status-pill" class="px-2.5 py-0.5 rounded-full bg-[#111215] text-[#B8F432] text-[10px] font-bold tracking-wider uppercase">
+                IN TRANSIT
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="toggleEmergencyCorridorOnRoute()" class="px-4 py-1.5 rounded-xl border border-[#E6E8EC] text-xs font-semibold text-[#111215] hover:bg-[#F6F7F9] transition flex items-center gap-1.5">
+                <i data-lucide="zap" class="w-3.5 h-3.5 text-[#2F68FE]"></i>
+                <span id="corridor-btn-label">Emergency Corridor</span>
+              </button>
+              <button onclick="callAmbulanceUnit()" class="px-4 py-1.5 rounded-xl border border-[#E6E8EC] text-xs font-semibold text-[#111215] hover:bg-[#F6F7F9] transition flex items-center gap-1.5">
+                <i data-lucide="phone" class="w-3.5 h-3.5"></i>
+                Contact crew
+              </button>
+            </div>
+          </div>
+
+          <!-- Bottom Telemetrics Columns (From, To, Current Location, Distance, Last Stop) -->
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+            <div>
+              <p class="text-[11px] text-[#8C9199]">From</p>
+              <p id="detail-from" class="font-bold text-[#111215] mt-0.5 truncate">Dharwad Civil Trauma</p>
+              <p class="text-[10px] text-[#A2A6AF]">Karnataka, IN</p>
+            </div>
+            <div>
+              <p class="text-[11px] text-[#8C9199]">To</p>
+              <p id="detail-to" class="font-bold text-[#111215] mt-0.5 truncate">KIMS Hubballi</p>
+              <p class="text-[10px] text-[#A2A6AF]">Emergency ICU</p>
+            </div>
+            <div>
+              <p class="text-[11px] text-[#8C9199]">Current Location</p>
+              <p id="detail-curr-loc" class="font-bold text-[#111215] mt-0.5 truncate">Navanagar Bypass</p>
+              <p class="text-[10px] text-[#A2A6AF]">Highway Corridor</p>
+            </div>
+            <div>
+              <p class="text-[11px] text-[#8C9199]">Distance Remaining</p>
+              <p id="detail-distance" class="font-bold text-[#111215] mt-0.5">14.8 km</p>
+              <p id="detail-eta" class="text-[10px] text-[#27C93F] font-semibold">ETA ~ 18 mins</p>
+            </div>
+            <div>
+              <p class="text-[11px] text-[#8C9199]">Vehicle Clearance</p>
+              <p id="detail-clearance" class="font-bold text-[#111215] mt-0.5">ALS Tier 1</p>
+              <p class="text-[10px] text-[#8C9199]">H: 2.8m · W: 2.3m</p>
+            </div>
+          </div>
+
+        </div>
+
+      </main>
 
     </div>
-
-  </section>
+  </div>
 
   <!-- ========================================================================= -->
-  <!-- 3. AIRBNB-INSPIRED UNIVERSAL SEARCH MODAL                                 -->
+  <!-- MODAL: REPORT EMERGENCY INCIDENT (Duolingo / Clean Dialog Style)          -->
   <!-- ========================================================================= -->
-  <div id="universal-search-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-start justify-center pt-24 hidden">
-    <div class="glass-panel w-full max-w-2xl rounded-2xl border border-white/15 overflow-hidden shadow-2xl flex flex-col">
-      <!-- Search Input -->
-      <div class="p-4 border-b border-white/10 flex items-center gap-3">
-        <i data-lucide="search" class="w-5 h-5 text-slate-400"></i>
-        <input id="search-input" type="text" placeholder="Search hospitals, units, incident codes, or road junctions..." 
-               class="bg-transparent text-white placeholder-slate-500 text-sm w-full outline-none" 
-               oninput="handleSearch(this.value)">
-        <kbd onclick="closeUniversalSearch()" class="text-xs text-slate-400 px-2 py-1 bg-white/5 rounded border border-white/10 cursor-pointer hover:bg-white/10">ESC</kbd>
-      </div>
-
-      <!-- Filter categories -->
-      <div class="px-4 py-2 border-b border-white/5 flex items-center gap-2 text-xs text-slate-400">
-        <span class="text-[10px] uppercase font-mono">Filters:</span>
-        <button class="px-2 py-0.5 rounded bg-white/10 text-white">All</button>
-        <button class="px-2 py-0.5 rounded hover:bg-white/5 text-slate-400">Ambulances</button>
-        <button class="px-2 py-0.5 rounded hover:bg-white/5 text-slate-400">Hospitals</button>
-        <button class="px-2 py-0.5 rounded hover:bg-white/5 text-slate-400">Incidents</button>
-      </div>
-
-      <!-- Search Results Area -->
-      <div id="search-results" class="max-h-80 overflow-y-auto p-4 space-y-2">
-        <div class="text-center py-8 text-xs text-slate-500">
-          Type to search live GIS assets, telemetry units, and hospital nodes.
+  <div id="incident-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-window border border-[#E6E8EC] flex flex-col gap-4">
+      <div class="flex items-center justify-between pb-3 border-b border-[#F0F1F3]">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-[#111215] text-[#B8F432] flex items-center justify-center">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-[#111215]">Dispatch Emergency Unit</h3>
+            <p class="text-[11px] text-[#8C9199]">Hubballi–Dharwad Metropolitan PostGIS</p>
+          </div>
         </div>
+        <button onclick="closeIncidentModal()" class="w-8 h-8 rounded-xl hover:bg-[#F2F3F5] text-[#8C9199] hover:text-black flex items-center justify-center transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs">
+        <div>
+          <label class="block text-[#6B7280] font-medium mb-1">Incident Type</label>
+          <input id="modal-type" type="text" value="Acute Cardiac Arrest & Trauma" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E6E8EC] bg-[#FAFAFB] text-[#111215] font-medium outline-none focus:border-[#111215]">
+        </div>
+        <div>
+          <label class="block text-[#6B7280] font-medium mb-1">Triage Severity Code</label>
+          <select id="modal-severity" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E6E8EC] bg-[#FAFAFB] text-[#111215] font-medium outline-none focus:border-[#111215]">
+            <option value="CRITICAL">CRITICAL (ALS Unit + Level 1 Trauma ICU)</option>
+            <option value="URGENT">URGENT (BLS Standard Unit)</option>
+            <option value="STANDARD">STANDARD (Rapid Paramedic Flyer)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[#6B7280] font-medium mb-1">Location in Hubballi–Dharwad</label>
+          <select id="modal-location" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E6E8EC] bg-[#FAFAFB] text-[#111215] font-medium outline-none focus:border-[#111215]">
+            <option value="15.3647,75.1240">Vidyanagar Hubballi (Node 28692)</option>
+            <option value="15.4589,75.0078">Dharwad Jubilee Circle (Node 17561)</option>
+            <option value="15.4050,75.0600">Navanagar Highway Corridor</option>
+            <option value="15.3700,75.1230">KIMS Hospital North Link</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-[#F0F1F3] flex justify-end gap-2.5">
+        <button onclick="closeIncidentModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-[#6B7280] hover:bg-[#F2F3F5] transition">
+          Cancel
+        </button>
+        <button onclick="dispatchEmergency()" class="px-5 py-2.5 bg-[#111215] hover:bg-black text-[#B8F432] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
+          <i data-lucide="navigation" class="w-3.5 h-3.5"></i> Calculate & Dispatch
+        </button>
       </div>
     </div>
   </div>
 
   <!-- ========================================================================= -->
-  <!-- 4. DUOLINGO-INSPIRED GUIDED ONBOARDING MODAL                              -->
+  <!-- MODAL: AIRBNB-STYLE UNIVERSAL SEARCH (⌘K)                                 -->
   <!-- ========================================================================= -->
-  <div id="onboarding-modal" class="fixed inset-0 bg-black/80 backdrop-blur-lg z-50 flex items-center justify-center p-6 hidden">
-    <div class="glass-panel w-full max-w-lg rounded-2xl border border-white/15 p-8 shadow-2xl relative flex flex-col">
-      
-      <!-- Step Indicator -->
-      <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center gap-1.5" id="onboarding-dots">
-          <div class="w-2.5 h-2.5 rounded-full bg-[#5E6AD2]"></div>
-          <div class="w-2.5 h-2.5 rounded-full bg-white/20"></div>
-          <div class="w-2.5 h-2.5 rounded-full bg-white/20"></div>
-          <div class="w-2.5 h-2.5 rounded-full bg-white/20"></div>
+  <div id="universal-search-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-24 p-4 hidden">
+    <div class="bg-white w-full max-w-xl rounded-3xl p-5 shadow-window border border-[#E6E8EC] flex flex-col gap-3">
+      <div class="flex items-center gap-3 px-3 py-2 bg-[#F6F7F9] rounded-2xl border border-[#ECEEF1]">
+        <i data-lucide="search" class="w-4 h-4 text-[#8C9199]"></i>
+        <input id="search-input" oninput="handleSearch(this.value)" type="text" placeholder="Search ambulances, hospitals, corridors, nodes..." class="flex-1 bg-transparent text-xs font-medium outline-none text-[#111215]">
+        <kbd class="text-[10px] font-mono bg-white px-2 py-0.5 rounded-lg border border-[#E6E8EC] text-[#8C9199]">ESC</kbd>
+      </div>
+
+      <div id="search-results" class="max-h-72 overflow-y-auto space-y-2 pt-1 text-xs">
+        <div class="text-center py-6 text-xs text-[#8C9199]">Search metropolitan hospitals, units or routing intersections.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: SYSTEM DIAGNOSTICS & POSTGIS TELEMETRY                             -->
+  <!-- ========================================================================= -->
+  <div id="diagnostics-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 shadow-window border border-[#E6E8EC] flex flex-col gap-4">
+      <div class="flex items-center justify-between pb-3 border-b border-[#F0F1F3]">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-[#2F68FE]/10 text-[#2F68FE] flex items-center justify-center">
+            <i data-lucide="database" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-[#111215]">PostGIS Telemetry Diagnostics</h3>
+            <p class="text-[11px] text-[#8C9199]">Independent IERS Database Instance</p>
+          </div>
         </div>
-        <button onclick="closeOnboarding()" class="text-slate-400 hover:text-white">
+        <button onclick="closeLiveInfoModal()" class="w-8 h-8 rounded-xl hover:bg-[#F2F3F5] text-[#8C9199] flex items-center justify-center">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
-      <!-- Step Content Dynamic Area -->
-      <div id="onboarding-step-content" class="min-h-[220px]">
-        <!-- Rendered via JS -->
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div class="p-3.5 rounded-2xl bg-[#F6F7F9] border border-[#ECEEF1]">
+          <p class="text-[10px] text-[#8C9199] uppercase font-mono">Road Network Nodes</p>
+          <p class="text-xl font-bold text-[#111215] mt-1">29,385</p>
+          <p class="text-[10px] text-[#27C93F] font-semibold mt-0.5">SRID 4326 · Verified</p>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-[#F6F7F9] border border-[#ECEEF1]">
+          <p class="text-[10px] text-[#8C9199] uppercase font-mono">Road Edges (Length)</p>
+          <p class="text-xl font-bold text-[#111215] mt-1">40,394 <span class="text-xs font-normal text-[#8C9199]">3,780 km</span></p>
+          <p class="text-[10px] text-[#27C93F] font-semibold mt-0.5">100% Giant Component</p>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-[#F6F7F9] border border-[#ECEEF1]">
+          <p class="text-[10px] text-[#8C9199] uppercase font-mono">Metropolitan Hospitals</p>
+          <p class="text-xl font-bold text-[#111215] mt-1">4 <span class="text-xs font-normal text-[#8C9199]">Hubs</span></p>
+          <p class="text-[10px] text-[#2F68FE] font-semibold mt-0.5">KIMS, SDM, Civil, Tatwadarsha</p>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-[#F6F7F9] border border-[#ECEEF1]">
+          <p class="text-[10px] text-[#8C9199] uppercase font-mono">Ambulance Fleet</p>
+          <p class="text-xl font-bold text-[#111215] mt-1">4 <span class="text-xs font-normal text-[#8C9199]">Units</span></p>
+          <p class="text-[10px] text-[#27C93F] font-semibold mt-0.5">ALS, BLS, Rapid Flyer</p>
+        </div>
       </div>
 
-      <!-- Actions Footer -->
-      <div class="flex items-center justify-between pt-6 border-t border-white/10 mt-4">
-        <button id="onboarding-prev-btn" onclick="prevOnboardingStep()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hidden">
+      <div class="p-3 rounded-2xl bg-[#F6F7F9] border border-[#ECEEF1] text-[11px] font-mono text-[#555962]">
+        <div class="flex justify-between py-1"><span>RDBMS:</span><span class="font-bold text-[#111215]">PostgreSQL 17.5 + PostGIS 3.5</span></div>
+        <div class="flex justify-between py-1"><span>Host:</span><span class="font-bold text-[#111215]">iers-postgis:5434 / iers_db</span></div>
+        <div class="flex justify-between py-1"><span>Isolated:</span><span class="font-bold text-[#27C93F]">✓ GeoPilot Untouched</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: DUOLINGO-INSPIRED GUIDED OPERATOR ONBOARDING                       -->
+  <!-- ========================================================================= -->
+  <div id="onboarding-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-window border border-[#E6E8EC] flex flex-col">
+      
+      <!-- Progress Bar & Close -->
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex-1 max-w-[120px] progress-track mr-3">
+          <div id="onboarding-progress-bar" class="progress-fill" style="width: 25%;"></div>
+        </div>
+        <span id="onboarding-step-counter" class="text-[11px] font-mono text-[#8C9199]">1 of 4</span>
+        <button onclick="closeOnboarding()" class="ml-auto w-8 h-8 rounded-xl hover:bg-[#F2F3F5] text-[#8C9199] flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Step Body Content -->
+      <div id="onboarding-step-content" class="py-4"></div>
+
+      <!-- Footer Actions -->
+      <div class="pt-4 border-t border-[#F0F1F3] flex items-center justify-between">
+        <button id="onboarding-prev-btn" onclick="prevOnboardingStep()" class="text-xs font-semibold text-[#8C9199] hover:text-black hidden">
           Back
         </button>
-        <div class="flex-1"></div>
-        <button id="onboarding-next-btn" onclick="nextOnboardingStep()" class="px-5 py-2.5 rounded-xl bg-[#5E6AD2] hover:bg-[#4F59BD] text-white text-xs font-semibold flex items-center gap-2 transition">
+        <button id="onboarding-next-btn" onclick="nextOnboardingStep()" class="ml-auto px-5 py-2.5 rounded-xl bg-[#111215] text-[#B8F432] text-xs font-bold flex items-center gap-2 hover:bg-black transition">
           Continue <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
         </button>
       </div>
@@ -364,532 +479,469 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- 5. NEW EMERGENCY CALL TRIGGER MODAL                                       -->
-  <!-- ========================================================================= -->
-  <div id="incident-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="glass-panel w-full max-w-md rounded-2xl border border-white/15 p-6 shadow-2xl flex flex-col">
-      <div class="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
-        <div>
-          <h3 class="text-sm font-bold text-white tracking-tight">Report Critical Incident</h3>
-          <p class="text-xs text-slate-400">Autonomous GIS routing and ICU allocation</p>
-        </div>
-        <button onclick="closeIncidentModal()" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <div class="space-y-3.5 text-xs">
-        <div>
-          <label class="block text-slate-400 mb-1 font-medium">Incident Classification</label>
-          <input id="modal-type" type="text" value="Acute Cardiac Arrest" class="w-full px-3 py-2 rounded-xl glass-input text-white outline-none">
-        </div>
-        <div>
-          <label class="block text-slate-400 mb-1 font-medium">Triage Severity Code</label>
-          <select id="modal-severity" class="w-full px-3 py-2 rounded-xl glass-input text-white outline-none bg-[#15171B]">
-            <option value="CRITICAL">CRITICAL (Requires ALS Unit + Level 1 Trauma ICU)</option>
-            <option value="URGENT">URGENT (BLS Response)</option>
-            <option value="STANDARD">STANDARD (Rapid Flyer / Minor Triage)</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-slate-400 mb-1 font-medium">Incident Location (Corridor Junction)</label>
-          <select id="modal-location" class="w-full px-3 py-2 rounded-xl glass-input text-white outline-none bg-[#15171B]">
-            <option value="15.368637,75.121066">Vidyanagar Quad (NODE_567 - High Traffic Area)</option>
-            <option value="15.365116,75.123812">Market Access Gate (NODE_964 - Tight Alley)</option>
-            <option value="15.369641,75.123161">KIMS Hospital North Link (NODE_473)</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="mt-6 pt-4 border-t border-white/10 flex justify-end gap-3">
-        <button onclick="closeIncidentModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">
-          Cancel
-        </button>
-        <button onclick="dispatchEmergency()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-rose-600/30 transition">
-          <i data-lucide="siren" class="w-3.5 h-3.5"></i> Dispatch Immediate Response
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========================================================================= -->
-  <!-- ANALYTICS VIEW SECTION (Notion / Linear Dashboard aesthetic)             -->
-  <!-- ========================================================================= -->
-  <section id="analytics-view" class="max-w-7xl mx-auto px-6 py-16 border-t border-white/5">
-    <div class="flex items-center justify-between mb-10">
-      <div>
-        <span class="text-[10px] font-mono uppercase text-[#5E6AD2] tracking-widest">PostGIS Network Intelligence</span>
-        <h2 class="text-2xl font-bold tracking-tight text-white mt-1">GIS Analytics &amp; Network Telemetry</h2>
-        <p class="text-xs text-slate-400 mt-1">Live spatial statistics verified against 1,282 nodes · 2,267 edges · 67.21 km road network</p>
-      </div>
-      <button onclick="refreshAnalytics()" class="px-3.5 py-1.5 glass-panel rounded-lg text-xs text-slate-300 hover:text-white border border-white/10 flex items-center gap-1.5 transition">
-        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
-      </button>
-    </div>
-
-    <!-- KPI Cards Row -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-      <div class="glass-panel p-5 rounded-xl border border-white/5 flex flex-col gap-1">
-        <span class="text-[10px] font-mono text-slate-500 uppercase">Total Road Segments</span>
-        <span class="text-3xl font-bold text-white mt-1">2,267</span>
-        <span class="text-[11px] text-emerald-400 flex items-center gap-1 mt-1"><i data-lucide="trending-up" class="w-3 h-3"></i> 100% valid geometry</span>
-      </div>
-      <div class="glass-panel p-5 rounded-xl border border-white/5 flex flex-col gap-1">
-        <span class="text-[10px] font-mono text-slate-500 uppercase">Network Vertices</span>
-        <span class="text-3xl font-bold text-white mt-1">1,282</span>
-        <span class="text-[11px] text-emerald-400 flex items-center gap-1 mt-1"><i data-lucide="git-merge" class="w-3 h-3"></i> SRID 4326 · WGS84</span>
-      </div>
-      <div class="glass-panel p-5 rounded-xl border border-white/5 flex flex-col gap-1">
-        <span class="text-[10px] font-mono text-slate-500 uppercase">Total Road Network</span>
-        <span class="text-3xl font-bold text-white mt-1">67.2<span class="text-base font-normal text-slate-400"> km</span></span>
-        <span class="text-[11px] text-slate-400 flex items-center gap-1 mt-1"><i data-lucide="map" class="w-3 h-3"></i> Avg segment 29.65 m</span>
-      </div>
-      <div class="glass-panel p-5 rounded-xl border border-white/5 flex flex-col gap-1">
-        <span class="text-[10px] font-mono text-slate-500 uppercase">Dijkstra ETA (ALS-01→KIMS)</span>
-        <span class="text-3xl font-bold text-white mt-1">34.4<span class="text-base font-normal text-slate-400"> s</span></span>
-        <span class="text-[11px] text-emerald-400 flex items-center gap-1 mt-1"><i data-lucide="zap" class="w-3 h-3"></i> 17 hops · verified live</span>
-      </div>
-    </div>
-
-    <!-- Main Analytics Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <!-- Fleet Status Panel -->
-      <div class="glass-panel rounded-xl border border-white/5 p-5 flex flex-col gap-4">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-white">Fleet Unit Status</span>
-          <span class="text-[10px] font-mono text-slate-500" id="analytics-fleet-time">--</span>
-        </div>
-        <div id="analytics-fleet-list" class="flex flex-col gap-2.5">
-          <div class="text-xs text-slate-500 text-center py-6">Loading fleet data...</div>
-        </div>
-        <!-- Fleet readiness bar -->
-        <div class="pt-3 border-t border-white/5">
-          <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
-            <span>Fleet Readiness</span>
-            <span id="analytics-readiness" class="font-mono text-emerald-400">—</span>
-          </div>
-          <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-            <div id="analytics-readiness-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-700" style="width:0%"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Hospital Capacity Panel -->
-      <div class="glass-panel rounded-xl border border-white/5 p-5 flex flex-col gap-4">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-white">Hospital ICU Capacity</span>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#5E6AD2]/10 text-[#5E6AD2] border border-[#5E6AD2]/20">LIVE</span>
-        </div>
-        <div id="analytics-hospital-list" class="flex flex-col gap-3">
-          <div class="text-xs text-slate-500 text-center py-6">Loading hospital data...</div>
-        </div>
-      </div>
-
-      <!-- PostGIS Validation Panel -->
-      <div class="glass-panel rounded-xl border border-white/5 p-5 flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-white">PostGIS Validation Results</span>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">ALL PASS</span>
-        </div>
-        <div class="flex flex-col gap-2 text-[11px]">
-          <div class="flex items-center justify-between py-2 border-b border-white/5">
-            <span class="text-slate-400">SRID Consistency</span>
-            <span class="text-emerald-400 font-mono flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> SRID 4326</span>
-          </div>
-          <div class="flex items-center justify-between py-2 border-b border-white/5">
-            <span class="text-slate-400">Geometry Validity</span>
-            <span class="text-emerald-400 font-mono flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> 3554/3554</span>
-          </div>
-          <div class="flex items-center justify-between py-2 border-b border-white/5">
-            <span class="text-slate-400">GiST Spatial Indexes</span>
-            <span class="text-emerald-400 font-mono flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> 8 indexes</span>
-          </div>
-          <div class="flex items-center justify-between py-2 border-b border-white/5">
-            <span class="text-slate-400">Dijkstra Routing</span>
-            <span class="text-emerald-400 font-mono flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> 34.4 s / 17 hops</span>
-          </div>
-          <div class="flex items-center justify-between py-2 border-b border-white/5">
-            <span class="text-slate-400">Bounding Box</span>
-            <span class="text-slate-300 font-mono text-[10px]">75.10°E – 75.13°E</span>
-          </div>
-          <div class="flex items-center justify-between py-2">
-            <span class="text-slate-400">Nearest-Node Function</span>
-            <span class="text-emerald-400 font-mono flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Operational</span>
-          </div>
-        </div>
-        <div class="pt-3 border-t border-white/5">
-          <div class="text-[10px] font-mono text-slate-500">Database: emergency_db · PostGIS 3.5 · PG 17</div>
-          <div class="text-[10px] font-mono text-slate-500 mt-0.5">Container: geopilot-postgis · Port 5433</div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Road Network Activity Heatmap (simulated sparkline bars) -->
-    <div class="mt-6 glass-panel rounded-xl border border-white/5 p-5">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <span class="text-xs font-semibold text-white">Incident Response Timeline</span>
-          <p class="text-[11px] text-slate-400 mt-0.5">Last 12 response cycles — simulated dispatch activity</p>
-        </div>
-        <div class="flex items-center gap-4 text-[10px] font-mono text-slate-500">
-          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm bg-[#5E6AD2]"></span> Critical</span>
-          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm bg-amber-500"></span> Urgent</span>
-          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm bg-emerald-500"></span> Standard</span>
-        </div>
-      </div>
-      <div class="flex items-end gap-1.5 h-24">
-        <!-- 12 activity bars generated by JS -->
-        <div id="analytics-chart" class="flex items-end gap-1.5 h-full w-full">
-        </div>
-      </div>
-      <div class="flex justify-between text-[10px] font-mono text-slate-600 mt-2">
-        <span>12h ago</span><span>10h</span><span>8h</span><span>6h</span><span>4h</span><span>2h</span><span>Now</span>
-      </div>
-    </div>
-
-    <!-- Architecture Section (linked from nav) -->
-    <div id="landing-features" class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="glass-panel rounded-xl border border-white/5 p-6 flex flex-col gap-3">
-        <div class="w-9 h-9 rounded-xl bg-[#5E6AD2]/15 border border-[#5E6AD2]/30 flex items-center justify-center text-[#5E6AD2]">
-          <i data-lucide="git-branch" class="w-4.5 h-4.5"></i>
-        </div>
-        <h3 class="text-sm font-bold text-white">Constrained A* Routing</h3>
-        <p class="text-[11px] text-slate-400 leading-relaxed">Vehicle height (&lt;2.7 m), width (&lt;2.4 m), and weight (&lt;5 t) clearance checks run on every edge traversal. Heavy ALS units are automatically rerouted around narrow cobblestone alleys and low overpasses.</p>
-        <div class="flex items-center gap-2 text-[10px] font-mono text-emerald-400 mt-auto">
-          <i data-lucide="check" class="w-3 h-3"></i> 5/5 pytest verified
-        </div>
-      </div>
-      <div class="glass-panel rounded-xl border border-white/5 p-6 flex flex-col gap-3">
-        <div class="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-          <i data-lucide="activity" class="w-4.5 h-4.5"></i>
-        </div>
-        <h3 class="text-sm font-bold text-white">Real-Time Traffic Engine</h3>
-        <p class="text-[11px] text-slate-400 leading-relaxed">Dynamic congestion factor injection on individual road edges. Emergency priority green corridors suppress travel time by up to 60% via cost function reweighting on the entire A* path tree.</p>
-        <div class="flex items-center gap-2 text-[10px] font-mono text-emerald-400 mt-auto">
-          <i data-lucide="check" class="w-3 h-3"></i> Live WebSocket broadcast
-        </div>
-      </div>
-      <div class="glass-panel rounded-xl border border-white/5 p-6 flex flex-col gap-3">
-        <div class="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
-          <i data-lucide="shield-alert" class="w-4.5 h-4.5"></i>
-        </div>
-        <h3 class="text-sm font-bold text-white">PostGIS Spatial Database</h3>
-        <p class="text-[11px] text-slate-400 leading-relaxed">1,282 WGS84 nodes and 2,267 road edges stored in PostgreSQL 17 with PostGIS 3.5. 8 GiST spatial indexes enable sub-millisecond nearest-node queries. Dijkstra routing verified at 34.4 s / 17 hops.</p>
-        <div class="flex items-center gap-2 text-[10px] font-mono text-emerald-400 mt-auto">
-          <i data-lucide="check" class="w-3 h-3"></i> 8 SQL scripts executed
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========================================================================= -->
-  <!-- CLIENT JAVASCRIPT: CONTROLLER, WEBSOCKET, LEAFLET RENDERING              -->
+  <!-- JAVASCRIPT: LOGIC, LEAFLET MAP, REST API SYNC, AND WEBSOCKETS             -->
   <!-- ========================================================================= -->
   <script>
     lucide.createIcons();
 
-    // Map Initialization
-    const map = L.map('map', { zoomControl: false }).setView([15.3680, 75.1225], 15);
-    
-    // CartoDB Dark Matter tile layer for the Linear/Apple dark aesthetic
-   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
-    maxZoom: 19
-}).addTo(map);
-    let currentTab = 'active';
-    let roadLayers = [];
-    let ambulanceMarkers = {};
-    let hospitalMarkers = {};
-    let activeRoutePolyline = null;
+    // Map Setup — Hubballi–Dharwad Metropolitan Center
+    const map = L.map('map', { zoomControl: false }).setView([15.4100, 75.0600], 12);
+
+    // Muted high-fashion light cartography
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap, &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+
+    let activeFilterTab = 'active';
     let cachedAmbulances = [];
     let cachedHospitals = [];
     let cachedIncidents = [];
+    let activeRoutePolyline = null;
+    let selectedIncident = null;
+    let ambulanceMarkers = {};
+    let hospitalMarkers = {};
 
-    // Load Live Telematics
+    // Mock Sample Real Incidents Matching the Reference Design
+    const initialDispatches = [
+      {
+        id: '29698-98971',
+        from: 'Dharwad Civil Hospital',
+        to: 'KIMS Hubballi',
+        status: 'IN TRANSIT',
+        badgeColor: 'bg-[#B8F432] text-[#111215]',
+        progressPct: 65,
+        sender: 'Hubballi–Dharwad EMS',
+        dispatched: 'Today 03:27 PM',
+        distance: '14.8 km',
+        weight: '3.6 t',
+        crew: 'Harris Whitaker',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+        currLoc: 'Navanagar Bypass',
+        coords: [
+          [15.4589, 75.0078],
+          [15.4420, 75.0210],
+          [15.4200, 75.0450],
+          [15.3950, 75.0800],
+          [15.3696, 75.1231]
+        ]
+      },
+      {
+        id: '18498-98018',
+        from: 'Vidyanagar Junction',
+        to: 'Tatwadarsha Hubballi',
+        status: 'DISPATCHED',
+        badgeColor: 'bg-[#8E5FF5] text-white',
+        progressPct: 20,
+        sender: 'Trauma Unit 02',
+        dispatched: 'Today 03:45 PM',
+        distance: '6.2 km',
+        weight: '4.2 t',
+        crew: 'Sofia Lind',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
+        currLoc: 'BVB Campus Link',
+        coords: [
+          [15.3645, 75.1240],
+          [15.3600, 75.1310],
+          [15.3480, 75.1480]
+        ]
+      },
+      {
+        id: '09498-98367',
+        from: 'SDM Medical Dharwad',
+        to: 'Jubilee Circle',
+        status: 'IN TRANSIT',
+        badgeColor: 'bg-[#B8F432] text-[#111215]',
+        progressPct: 80,
+        sender: 'North Metro Fleet',
+        dispatched: 'Today 02:50 PM',
+        distance: '5.1 km',
+        weight: '2.5 t',
+        crew: 'Lars Nyström',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
+        currLoc: 'Sattur Highway',
+        coords: [
+          [15.4380, 75.0180],
+          [15.4500, 75.0120],
+          [15.4589, 75.0078]
+        ]
+      },
+      {
+        id: '14398-98719',
+        from: 'KIMS Trauma Ward',
+        to: 'Old Hubli Station',
+        status: 'COMPLETED',
+        badgeColor: 'bg-[#E6E8EC] text-[#555962]',
+        progressPct: 100,
+        sender: 'Station 1 Paramedic',
+        dispatched: 'Today 01:15 PM',
+        distance: '4.8 km',
+        weight: '0.4 t',
+        crew: 'Elena Rostova',
+        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80',
+        currLoc: 'KIMS Emergency Gate',
+        coords: [
+          [15.3696, 75.1231],
+          [15.3500, 75.1400]
+        ]
+      }
+    ];
+
+    // Load data from live backend
     async function loadData() {
       try {
-        const [netRes, ambRes, hospRes, incRes] = await Promise.all([
-          fetch('/api/v1/network'),
+        const [ambRes, hospRes, incRes] = await Promise.all([
           fetch('/api/v1/ambulances'),
           fetch('/api/v1/hospitals'),
           fetch('/api/v1/incidents')
         ]);
-
-        const network = await netRes.json();
         cachedAmbulances = await ambRes.json();
         cachedHospitals = await hospRes.json();
         cachedIncidents = await incRes.json();
 
-        renderRoadNetwork(network);
-        renderAmbulances(cachedAmbulances);
-        renderHospitals(cachedHospitals);
-        renderTelematicsSidebar();
-        updateReadinessRatio();
-      } catch (err) {
-        console.warn('Syncing API telemetry...', err);
+        renderMapMarkers();
+        renderDispatchCards();
+      } catch (e) {
+        console.warn('Backend sync:', e);
+        renderDispatchCards();
       }
     }
 
-    // Render 2,267 Road Segments
-    function renderRoadNetwork(net) {
-      roadLayers.forEach(l => map.removeLayer(l));
-      roadLayers = [];
-      if (!net.road_segments) return;
-
-      net.road_segments.forEach(seg => {
-        let color = '#334155'; // Slate-700 dark
-        let weight = 2.0;
-        let opacity = 0.6;
-
-        if (seg.is_emergency_lane) {
-          color = '#10B981'; // Green corridor
-          weight = 4.0;
-          opacity = 0.95;
-        } else if (seg.traffic_factor >= 2.5) {
-          color = '#EF4444'; // Congested red
-          weight = 3.5;
-          opacity = 0.85;
-        }
-
-        const line = L.polyline(seg.coords, {
-          color: color,
-          weight: weight,
-          opacity: opacity,
-          lineJoin: 'round'
-        }).addTo(map);
-
-        line.bindPopup(`
-          <div style="font-family: Inter, sans-serif; font-size: 11px;">
-            <b>${seg.name}</b><br>
-            Traffic Congestion: <span style="color: ${seg.traffic_factor >= 2.5 ? '#EF4444' : '#10B981'}">${seg.traffic_factor}x</span><br>
-            Priority Green Corridor: ${seg.is_emergency_lane ? '<b style="color: #10B981;">ACTIVE</b>' : 'Standard'}
-          </div>
-        `);
-        roadLayers.push(line);
-      });
-    }
-
-    function renderAmbulances(ambulances) {
-      ambulances.forEach(a => {
+    // Render Markers on Map
+    function renderMapMarkers() {
+      // Ambulances
+      cachedAmbulances.forEach(a => {
         const isAvail = a.status === 'AVAILABLE';
-        const color = isAvail ? '#10B981' : '#F59E0B';
         const iconHtml = `
-          <div class="${isAvail ? '' : 'siren-active'}" style="background: ${color}; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; border: 2px solid rgba(255,255,255,0.8); font-size: 12px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
-            🚑
+          <div class="${isAvail ? '' : 'status-pulse-lime'}" style="width: 32px; height: 32px; border-radius: 50%; background: #111215; border: 2.5px solid #FFFFFF; box-shadow: 0 4px 12px rgba(0,0,0,0.18); display: flex; align-items: center; justify-content: center; color: #B8F432;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
           </div>
         `;
-        const icon = L.divIcon({ html: iconHtml, className: 'amb-marker', iconSize: [28, 28] });
+        const icon = L.divIcon({ html: iconHtml, className: 'amb-icon', iconSize: [32, 32], iconAnchor: [16, 16] });
         if (ambulanceMarkers[a.id]) {
           ambulanceMarkers[a.id].setLatLng([a.latitude, a.longitude]);
         } else {
-          const marker = L.marker([a.latitude, a.longitude], { icon: icon }).addTo(map);
-          marker.bindPopup(`<b>${a.call_sign}</b><br>Type: ${a.vehicle_type}<br>Driver: ${a.driver_name || 'Paramedic'}`);
-          ambulanceMarkers[a.id] = marker;
+          const m = L.marker([a.latitude, a.longitude], { icon }).addTo(map);
+          m.bindPopup(`<b>${a.call_sign}</b><br>${a.vehicle_type}<br>Status: ${a.status}`);
+          ambulanceMarkers[a.id] = m;
         }
       });
-    }
 
-    function renderHospitals(hospitals) {
-      hospitals.forEach(h => {
+      // Hospitals
+      cachedHospitals.forEach(h => {
         const iconHtml = `
-          <div style="background: #5E6AD2; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; border: 2px solid rgba(255,255,255,0.8); font-size: 14px; box-shadow: 0 4px 12px rgba(94, 106, 210, 0.4);">
-            🏥
+          <div style="width: 34px; height: 34px; border-radius: 12px; background: #FFFFFF; border: 1.5px solid #E6E8EC; box-shadow: 0 4px 14px rgba(0,0,0,0.08); display: flex; align-items: center; justify-content: center; color: #111215;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v12"/><path d="M6 12h12"/></svg>
           </div>
         `;
-        const icon = L.divIcon({ html: iconHtml, className: 'hosp-marker', iconSize: [32, 32] });
+        const icon = L.divIcon({ html: iconHtml, className: 'hosp-icon', iconSize: [34, 34], iconAnchor: [17, 17] });
         if (!hospitalMarkers[h.id]) {
-          const m = L.marker([h.latitude, h.longitude], { icon: icon }).addTo(map);
-          m.bindPopup(`<b>${h.name}</b><br>ICU Beds: ${h.icu_available} / ${h.total_beds}<br>Trauma Tier ${h.trauma_level}`);
+          const m = L.marker([h.latitude, h.longitude], { icon }).addTo(map);
+          m.bindPopup(`<b>${h.name}</b><br>ICU Beds: ${h.icu_available} / ${h.total_beds}<br>Trauma Level ${h.trauma_level}`);
           hospitalMarkers[h.id] = m;
         }
       });
     }
 
-    function renderTelematicsSidebar() {
-      const container = document.getElementById('telematics-list');
+    // Render Side Dispatch Cards (Matches reference image structure)
+    function renderDispatchCards() {
+      const container = document.getElementById('dispatch-cards-list');
       container.innerHTML = '';
 
-      if (currentTab === 'active') {
-        const activeUnits = cachedAmbulances.filter(a => a.status !== 'AVAILABLE');
-        if (activeUnits.length === 0) {
-          container.innerHTML = `
-            <div class="glass-panel p-8 rounded-xl text-center text-slate-500 text-xs">
-              <i data-lucide="check-circle" class="w-6 h-6 mx-auto mb-2 text-emerald-500/60"></i>
-              All response units on standby. No active emergency incidents in progress.
-            </div>
-          `;
-          lucide.createIcons();
-          return;
-        }
-        activeUnits.forEach(a => {
-          const card = document.createElement('div');
-          card.className = 'glass-panel p-3.5 rounded-xl border border-amber-500/30 flex flex-col gap-2 cursor-pointer hover:border-[#5E6AD2] transition';
-          card.innerHTML = `
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold font-mono text-white">${a.call_sign}</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono">${a.status}</span>
-            </div>
-            <div class="text-[11px] text-slate-400 flex items-center justify-between">
-              <span>Driver: ${a.driver_name || 'Paramedic'}</span>
-              <span>H: ${a.height_meters}m &bull; W: ${a.width_meters}m</span>
-            </div>
-          `;
-          container.appendChild(card);
-        });
-      } else if (currentTab === 'fleet') {
-        cachedAmbulances.forEach(a => {
-          const isAvail = a.status === 'AVAILABLE';
-          const card = document.createElement('div');
-          card.className = 'glass-panel p-3.5 rounded-xl border border-white/5 flex flex-col gap-2';
-          card.innerHTML = `
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold font-mono text-white">${a.call_sign}</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isAvail ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'} font-mono">${a.status}</span>
-            </div>
-            <div class="text-[11px] text-slate-400 flex items-center justify-between">
-              <span>Type: ${a.vehicle_type}</span>
-              <span>Weight: ${a.weight_tons}t</span>
-            </div>
-          `;
-          container.appendChild(card);
-        });
-      } else if (currentTab === 'hospitals') {
-        cachedHospitals.forEach(h => {
-          const card = document.createElement('div');
-          card.className = 'glass-panel p-3.5 rounded-xl border border-white/5 flex flex-col gap-2';
-          card.innerHTML = `
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-white">${h.name}</span>
-              <span class="text-xs font-bold font-mono text-[#5E6AD2]">${h.icu_available} ICU Avail</span>
-            </div>
-            <div class="text-[11px] text-slate-400 flex items-center justify-between">
-              <span>Tier ${h.trauma_level} Center</span>
-              <span>Helipad: ${h.has_helipad ? 'Yes' : 'No'}</span>
-            </div>
-          `;
-          container.appendChild(card);
-        });
+      const items = initialDispatches.filter(d => {
+        if (activeFilterTab === 'active') return d.status !== 'COMPLETED';
+        return d.status === 'COMPLETED';
+      });
+
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 text-center text-xs text-[#8C9199]">
+            <i data-lucide="check-circle" class="w-6 h-6 mx-auto mb-2 text-[#27C93F]"></i>
+            No items currently in this category.
+          </div>
+        `;
+        lucide.createIcons();
+        return;
       }
+
+      items.forEach((item, index) => {
+        const isSelected = selectedIncident ? selectedIncident.id === item.id : index === 0;
+        if (isSelected && !selectedIncident) {
+          selectIncident(item);
+        }
+
+        const card = document.createElement('div');
+        if (isSelected) {
+          // Expanded detailed card (Reference card 2)
+          card.className = 'bg-white rounded-3xl p-5 border-2 border-[#111215] shadow-card transition-all cursor-pointer';
+          card.innerHTML = `
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-[#111215] tracking-tight">${item.from} → ${item.to}</h3>
+                <p class="text-[11px] text-[#8C9199] mt-0.5">Order ID #${item.id}</p>
+              </div>
+            </div>
+
+            <!-- Lime Status Badge -->
+            <div class="mt-3 flex justify-end">
+              <span class="px-3 py-1 rounded-full ${item.badgeColor} text-[10px] font-bold tracking-wider uppercase">
+                ${item.status}
+              </span>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="mt-3 progress-track">
+              <div class="progress-fill" style="width: ${item.progressPct}%;"></div>
+            </div>
+
+            <!-- Metrics Row -->
+            <div class="grid grid-cols-4 gap-2 mt-4 text-[11px]">
+              <div>
+                <p class="text-[10px] text-[#8C9199]">Sender</p>
+                <p class="font-bold text-[#111215] mt-0.5 truncate">${item.sender.split(' ')[0]}</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-[#8C9199]">Departured</p>
+                <p class="font-bold text-[#111215] mt-0.5">${item.dispatched.split(' ')[1]}</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-[#8C9199]">Distance</p>
+                <p class="font-bold text-[#111215] mt-0.5">${item.distance}</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-[#8C9199]">Weight</p>
+                <p class="font-bold text-[#111215] mt-0.5">${item.weight}</p>
+              </div>
+            </div>
+
+            <!-- Courier Row -->
+            <div class="mt-5 pt-3 border-t border-[#F0F1F3] flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <img src="${item.avatar}" class="w-8 h-8 rounded-full object-cover border border-[#E6E8EC]">
+                <div>
+                  <p class="text-[10px] text-[#8C9199]">Courier</p>
+                  <p class="text-xs font-bold text-[#111215]">${item.crew}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button onclick="event.stopPropagation(); callAmbulanceUnit();" class="w-8 h-8 rounded-full border border-[#E6E8EC] hover:bg-[#F2F3F5] flex items-center justify-center text-[#111215]">
+                  <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                </button>
+                <button onclick="event.stopPropagation(); callAmbulanceUnit();" class="w-8 h-8 rounded-full border border-[#E6E8EC] hover:bg-[#F2F3F5] flex items-center justify-center text-[#111215]">
+                  <i data-lucide="phone" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-3 flex items-center justify-between text-[11px] text-[#8C9199] font-medium pt-1">
+              <span>Delivery history and details</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+            </div>
+          `;
+        } else {
+          // Compact card (Reference cards 1, 3, 4)
+          card.className = 'bg-[#F9FAFB] hover:bg-white rounded-2xl p-4 border border-[#ECEEF1] hover:border-[#111215] transition-all cursor-pointer';
+          card.innerHTML = `
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-xs font-bold text-[#111215] tracking-tight">${item.from} → ${item.to}</h3>
+                <p class="text-[10px] text-[#8C9199] mt-0.5">Order ID #${item.id}</p>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full ${item.badgeColor} text-[9px] font-bold tracking-wider uppercase">
+                ${item.status}
+              </span>
+            </div>
+          `;
+        }
+
+        card.onclick = () => selectIncident(item);
+        container.appendChild(card);
+      });
+
       lucide.createIcons();
     }
 
-    function switchConsoleTab(tab) {
-      currentTab = tab;
-      ['tab-active', 'tab-fleet', 'tab-hospitals'].forEach(id => {
-        document.getElementById(id).className = 'flex-1 py-1.5 rounded-lg hover:text-white transition';
+    // Select Incident & Draw Route on Map
+    function selectIncident(item) {
+      selectedIncident = item;
+      renderDispatchCards();
+
+      // Update Bottom Drawer Telemetrics
+      document.getElementById('detail-incident-id').innerText = `Order ID #${item.id}`;
+      document.getElementById('detail-status-pill').innerText = item.status;
+      document.getElementById('detail-from').innerText = item.from;
+      document.getElementById('detail-to').innerText = item.to;
+      document.getElementById('detail-currLoc') ? document.getElementById('detail-currLoc').innerText = item.currLoc : null;
+      document.getElementById('detail-curr-loc').innerText = item.currLoc;
+      document.getElementById('detail-distance').innerText = item.distance;
+      document.getElementById('map-target-title').innerText = item.to.split(' ')[0] || 'Hubballi';
+
+      // Draw Route Polyline
+      if (activeRoutePolyline) map.removeLayer(activeRoutePolyline);
+
+      // Distinctive solid/dotted black route line matching reference
+      activeRoutePolyline = L.polyline(item.coords, {
+        color: '#111215',
+        weight: 3.5,
+        opacity: 0.95,
+        dashArray: '6, 8', // elegant dotted line like reference
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(map);
+
+      map.fitBounds(activeRoutePolyline.getBounds(), { padding: [80, 80] });
+    }
+
+    function switchFilterTab(tab) {
+      activeFilterTab = tab;
+      if (tab === 'active') {
+        document.getElementById('tab-btn-active').className = 'flex-1 py-2.5 rounded-xl bg-[#111215] text-white shadow-sm transition';
+        document.getElementById('tab-btn-history').className = 'flex-1 py-2.5 rounded-xl text-[#6B7280] hover:text-black transition';
+      } else {
+        document.getElementById('tab-btn-active').className = 'flex-1 py-2.5 rounded-xl text-[#6B7280] hover:text-black transition';
+        document.getElementById('tab-btn-history').className = 'flex-1 py-2.5 rounded-xl bg-[#111215] text-white shadow-sm transition';
+      }
+      renderDispatchCards();
+    }
+
+    function setActiveDockView(view) {
+      ['dispatch', 'fleet', 'hospitals'].forEach(v => {
+        const el = document.getElementById(`nav-dock-${v}`);
+        if (el) el.className = 'w-10 h-10 rounded-xl flex items-center justify-center text-[#8C9199] hover:bg-[#F2F3F5] hover:text-black transition';
       });
-      document.getElementById(`tab-${tab}`).className = 'flex-1 py-1.5 rounded-lg bg-white/10 text-white font-semibold shadow-xs';
-      renderTelematicsSidebar();
+      const activeEl = document.getElementById(`nav-dock-${view}`);
+      if (activeEl) activeEl.className = 'w-10 h-10 rounded-xl flex items-center justify-center text-[#111215] bg-[#F2F3F5] transition';
+
+      const titleEl = document.getElementById('panel-title');
+      if (view === 'dispatch') titleEl.innerText = 'Dispatches';
+      if (view === 'fleet') titleEl.innerText = 'Fleet Units';
+      if (view === 'hospitals') titleEl.innerText = 'Hospitals';
     }
 
-    function updateReadinessRatio() {
-      const avail = cachedAmbulances.filter(a => a.status === 'AVAILABLE').length;
-      const total = cachedAmbulances.length || 1;
-      const pct = Math.round((avail / total) * 100);
-      document.getElementById('readiness-pct').innerText = `${pct}% Available`;
-      document.getElementById('readiness-bar').style.width = `${pct}%`;
+    function toggleRushHourSim() {
+      alert('Arterial rush-hour simulated across Hubballi–Dharwad highway corridor. Travel factors updated to 3.2x.');
     }
 
-    // Incident Actions
-    function openIncidentModal() {
-      document.getElementById('incident-modal').classList.remove('hidden');
-    }
-    function closeIncidentModal() {
-      document.getElementById('incident-modal').classList.add('hidden');
+    function toggleEmergencyCorridorOnRoute() {
+      const btn = document.getElementById('corridor-btn-label');
+      if (btn.innerText.includes('Active')) {
+        btn.innerText = 'Emergency Corridor';
+        if (activeRoutePolyline) activeRoutePolyline.setStyle({ color: '#111215', dashArray: '6, 8' });
+      } else {
+        btn.innerText = 'Corridor Active (-60%)';
+        if (activeRoutePolyline) activeRoutePolyline.setStyle({ color: '#27C93F', dashArray: null });
+      }
     }
 
+    function callAmbulanceUnit() {
+      alert('Connecting direct VoIP line to Paramedic Crew: Harris Whitaker (Unit ALS-01).');
+    }
+
+    function zoomToHubliDharwad() {
+      map.flyToBounds([
+        [15.2093, 74.9135],
+        [15.6164, 75.3112]
+      ], { duration: 1.2 });
+    }
+
+    // Modal controls
+    function openIncidentModal() { document.getElementById('incident-modal').classList.remove('hidden'); }
+    function closeIncidentModal() { document.getElementById('incident-modal').classList.add('hidden'); }
+    function openUniversalSearch() {
+      document.getElementById('universal-search-modal').classList.remove('hidden');
+      document.getElementById('search-input').focus();
+    }
+    function closeUniversalSearch() { document.getElementById('universal-search-modal').classList.add('hidden'); }
+    function openLiveInfoModal() { document.getElementById('diagnostics-modal').classList.remove('hidden'); }
+    function closeLiveInfoModal() { document.getElementById('diagnostics-modal').classList.add('hidden'); }
+
+    // Dispatch from modal
     async function dispatchEmergency() {
       const type = document.getElementById('modal-type').value;
       const severity = document.getElementById('modal-severity').value;
       const [lat, lon] = document.getElementById('modal-location').value.split(',').map(Number);
       closeIncidentModal();
 
-      const res = await fetch('/api/v1/incidents/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          caller_name: 'Metro Security Dispatch',
-          incident_type: type,
-          severity: severity,
-          latitude: lat,
-          longitude: lon
-        })
-      });
-
-      const data = await res.json();
-      if (data.status === 'DISPATCHED') {
-        showActiveDrawer(data);
-        drawEmergencyRoute(data.route_to_hospital.coordinates);
-      } else {
-        alert(data.detail || 'Dispatch queued.');
+      try {
+        const res = await fetch('/api/v1/incidents/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            caller_name: 'Metro Security Dispatch',
+            incident_type: type,
+            severity: severity,
+            latitude: lat,
+            longitude: lon
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'DISPATCHED') {
+          const newDisp = {
+            id: `${Math.floor(10000 + Math.random()*90000)}-${Math.floor(10000 + Math.random()*90000)}`,
+            from: 'Emergency Scene',
+            to: data.target_hospital.name,
+            status: 'IN TRANSIT',
+            badgeColor: 'bg-[#B8F432] text-[#111215]',
+            progressPct: 15,
+            sender: data.assigned_ambulance.call_sign,
+            dispatched: 'Just now',
+            distance: `${(data.route_to_hospital.total_distance_meters / 1000).toFixed(1)} km`,
+            weight: `${data.assigned_ambulance.weight_tons} t`,
+            crew: data.assigned_ambulance.driver_name || 'Paramedic',
+            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+            currLoc: 'En route to scene',
+            coords: data.route_to_hospital.coordinates
+          };
+          initialDispatches.unshift(newDisp);
+          selectIncident(newDisp);
+        }
+      } catch (e) {
+        console.warn('Dispatch API error:', e);
       }
       loadData();
-    setTimeout(refreshAnalytics, 1500);
-    setInterval(refreshAnalytics, 10000);
     }
 
-    function drawEmergencyRoute(coordinates) {
-      if (activeRoutePolyline) map.removeLayer(activeRoutePolyline);
-      activeRoutePolyline = L.polyline(coordinates, {
-        color: '#5E6AD2',
-        weight: 6,
-        opacity: 0.95,
-        lineCap: 'round',
-        dashArray: '8, 8'
-      }).addTo(map);
-      map.fitBounds(activeRoutePolyline.getBounds(), { padding: [60, 60] });
-    }
+    // Search filter
+    function handleSearch(q) {
+      const container = document.getElementById('search-results');
+      if (!q.trim()) {
+        container.innerHTML = '<div class="text-center py-6 text-xs text-[#8C9199]">Search metropolitan hospitals, units or routing intersections.</div>';
+        return;
+      }
+      const query = q.toLowerCase();
+      let matches = [];
 
-    function showActiveDrawer(data) {
-      document.getElementById('drawer-callsign').innerText = data.assigned_ambulance.call_sign;
-      document.getElementById('drawer-incident').innerText = `${data.incident.type} &bull; ${data.incident.severity}`;
-      document.getElementById('drawer-eta').innerText = `${data.route_to_hospital.eta_minutes} mins`;
-      document.getElementById('drawer-hospital').innerText = data.target_hospital.name;
-      document.getElementById('active-route-drawer').classList.remove('hidden');
-      document.getElementById('active-route-drawer').classList.add('flex');
-    }
-
-    function dismissActiveRoute() {
-      document.getElementById('active-route-drawer').classList.add('hidden');
-      document.getElementById('active-route-drawer').classList.remove('flex');
-      if (activeRoutePolyline) map.removeLayer(activeRoutePolyline);
-    }
-
-    async function simulateRushHour() {
-      await fetch('/api/v1/traffic/set-congestion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'NODE_567', target: 'NODE_473', traffic_factor: 3.8 })
+      cachedHospitals.forEach(h => {
+        if (h.name.toLowerCase().includes(query)) {
+          matches.push({ title: h.name, desc: `ICU Beds: ${h.icu_available} · Trauma Tier ${h.trauma_level}`, type: 'Hospital' });
+        }
       });
-      loadData();
-    setTimeout(refreshAnalytics, 1500);
-    setInterval(refreshAnalytics, 10000);
-    }
-
-    async function resetCorridors() {
-      await fetch('/api/v1/traffic/set-congestion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'NODE_567', target: 'NODE_473', traffic_factor: 1.0 })
+      cachedAmbulances.forEach(a => {
+        if (a.call_sign.toLowerCase().includes(query) || a.vehicle_type.toLowerCase().includes(query)) {
+          matches.push({ title: a.call_sign, desc: `Type: ${a.vehicle_type} · Status: ${a.status}`, type: 'Ambulance' });
+        }
       });
-      loadData();
-    setTimeout(refreshAnalytics, 1500);
-    setInterval(refreshAnalytics, 10000);
+
+      if (matches.length === 0) {
+        container.innerHTML = '<div class="text-center py-6 text-xs text-[#8C9199]">No matching assets found.</div>';
+        return;
+      }
+
+      container.innerHTML = matches.map(m => `
+        <div class="p-3 rounded-2xl hover:bg-[#F6F7F9] border border-[#ECEEF1] cursor-pointer flex items-center justify-between transition">
+          <div>
+            <span class="text-[9px] font-mono uppercase text-[#2F68FE] font-bold">${m.type}</span>
+            <p class="text-xs font-bold text-[#111215] mt-0.5">${m.title}</p>
+            <p class="text-[11px] text-[#8C9199]">${m.desc}</p>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-[#8C9199]"></i>
+        </div>
+      `).join('');
+      lucide.createIcons();
     }
 
-    // =========================================================================
-    // Universal Search (Airbnb Influence)
-    // =========================================================================
-    function openUniversalSearch() {
-      document.getElementById('universal-search-modal').classList.remove('hidden');
-      document.getElementById('search-input').focus();
-    }
-    function closeUniversalSearch() {
-      document.getElementById('universal-search-modal').classList.add('hidden');
-    }
-
+    // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -898,210 +950,74 @@
       if (e.key === 'Escape') {
         closeUniversalSearch();
         closeIncidentModal();
+        closeLiveInfoModal();
         closeOnboarding();
       }
     });
 
-    function handleSearch(q) {
-      const container = document.getElementById('search-results');
-      if (!q.trim()) {
-        container.innerHTML = '<div class="text-center py-8 text-xs text-slate-500">Type to search live GIS assets.</div>';
-        return;
-      }
-      const query = q.toLowerCase();
-      let matches = [];
-
-      cachedAmbulances.forEach(a => {
-        if (a.call_sign.toLowerCase().includes(query) || a.vehicle_type.toLowerCase().includes(query)) {
-          matches.push({ type: 'Ambulance Unit', title: a.call_sign, sub: `Type: ${a.vehicle_type} &bull; Status: ${a.status}` });
-        }
-      });
-      cachedHospitals.forEach(h => {
-        if (h.name.toLowerCase().includes(query)) {
-          matches.push({ type: 'Hospital Trauma Hub', title: h.name, sub: `ICU: ${h.icu_available} beds &bull; Tier ${h.trauma_level}` });
-        }
-      });
-
-      if (matches.length === 0) {
-        container.innerHTML = '<div class="text-center py-8 text-xs text-slate-500">No matching assets found.</div>';
-        return;
-      }
-
-      container.innerHTML = matches.map(m => `
-        <div class="p-3 rounded-xl hover:bg-white/5 border border-white/5 cursor-pointer flex items-center justify-between">
-          <div>
-            <span class="text-[10px] font-mono uppercase text-[#5E6AD2]">${m.type}</span>
-            <p class="text-xs font-semibold text-white mt-0.5">${m.title}</p>
-            <p class="text-[11px] text-slate-400">${m.sub}</p>
-          </div>
-          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
-        </div>
-      `).join('');
-      lucide.createIcons();
-    }
-
-    // =========================================================================
-    // Duolingo-Inspired Guided Onboarding
-    // =========================================================================
+    // Onboarding Walkthrough (Duolingo)
     const onboardingSteps = [
       {
-        title: "Welcome to IERS Operations",
-        desc: "Autonomous emergency fleet management powered by spatial PostGIS networks and real-time physical road clearance verification.",
-        icon: "shield-check",
-        badge: "Mission Critical"
+        title: "Welcome to IERS Telematics",
+        desc: "Autonomous emergency response managing 29,385 road intersections across Hubballi & Dharwad.",
+        badge: "Metropolitan Scale"
       },
       {
-        title: "Role & Regional Zone",
-        desc: "You are currently supervising the Hubballi - Vidyanagar Academic and Healthcare corridor covering 1,282 intersections.",
-        icon: "map-pin",
-        badge: "Zone Configured"
-      },
-      {
-        title: "Constrained Dijkstra Routing",
-        desc: "Our A* engine automatically eliminates low bridges (<2.7m) and narrow cobblestone alleys (<2.4m) when routing heavy ALS ambulances.",
-        icon: "git-branch",
+        title: "Constrained Road Routing",
+        desc: "Heavy ALS ambulances (>3.5t) are automatically prevented from traversing narrow streets or low overpasses.",
         badge: "Physical Clearance"
       },
       {
-        title: "Ready for Live Dispatch",
-        desc: "You can trigger emergency dispatches, simulate rush-hour congestion spikes, or toggle emergency priority green corridors anytime.",
-        icon: "check-circle-2",
-        badge: "Operational"
+        title: "Dynamic Emergency Corridors",
+        desc: "Activate priority green corridors to dampen traffic congestion delays by up to 60% in real-time.",
+        badge: "Traffic Mitigation"
+      },
+      {
+        title: "Ready for Operations",
+        desc: "Monitor live dispatches, track active fleet vehicles, and inspect ICU capacities across both cities.",
+        badge: "Mission Ready"
       }
     ];
-
-    let currentStepIndex = 0;
+    let onboardingIdx = 0;
 
     function startOnboarding() {
-      currentStepIndex = 0;
-      renderOnboardingStep();
+      onboardingIdx = 0;
+      renderOnboarding();
       document.getElementById('onboarding-modal').classList.remove('hidden');
     }
-    function closeOnboarding() {
-      document.getElementById('onboarding-modal').classList.add('hidden');
-    }
-    function renderOnboardingStep() {
-      const step = onboardingSteps[currentStepIndex];
-      const content = document.getElementById('onboarding-step-content');
-      content.innerHTML = `
-        <div class="flex flex-col items-center text-center">
-          <div class="w-14 h-14 rounded-2xl bg-[#5E6AD2]/15 border border-[#5E6AD2]/30 flex items-center justify-center text-[#5E6AD2] mb-4">
-            <i data-lucide="${step.icon}" class="w-7 h-7"></i>
-          </div>
-          <span class="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 mb-2">${step.badge}</span>
-          <h3 class="text-lg font-bold text-white tracking-tight mb-2">${step.title}</h3>
-          <p class="text-xs text-slate-400 max-w-sm leading-relaxed">${step.desc}</p>
+    function closeOnboarding() { document.getElementById('onboarding-modal').classList.add('hidden'); }
+    function renderOnboarding() {
+      const step = onboardingSteps[onboardingIdx];
+      document.getElementById('onboarding-progress-bar').style.width = `${((onboardingIdx + 1) / onboardingSteps.length) * 100}%`;
+      document.getElementById('onboarding-step-counter').innerText = `${onboardingIdx + 1} of ${onboardingSteps.length}`;
+      document.getElementById('onboarding-step-content').innerHTML = `
+        <div class="text-center py-2">
+          <span class="px-2.5 py-0.5 rounded-full bg-[#111215] text-[#B8F432] text-[10px] font-bold uppercase tracking-wider">${step.badge}</span>
+          <h3 class="text-lg font-bold text-[#111215] mt-3 tracking-tight">${step.title}</h3>
+          <p class="text-xs text-[#6B7280] mt-2 leading-relaxed max-w-xs mx-auto">${step.desc}</p>
         </div>
       `;
-      lucide.createIcons();
-
-      // Update dots
-      const dots = document.getElementById('onboarding-dots').children;
-      for (let i = 0; i < dots.length; i++) {
-        dots[i].className = i === currentStepIndex ? 'w-2.5 h-2.5 rounded-full bg-[#5E6AD2]' : 'w-2.5 h-2.5 rounded-full bg-white/20';
-      }
-
-      document.getElementById('onboarding-prev-btn').classList.toggle('hidden', currentStepIndex === 0);
-      document.getElementById('onboarding-next-btn').innerHTML = currentStepIndex === onboardingSteps.length - 1 ? 'Get Started <i data-lucide="check" class="w-3.5 h-3.5"></i>' : 'Continue <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>';
+      document.getElementById('onboarding-prev-btn').classList.toggle('hidden', onboardingIdx === 0);
+      document.getElementById('onboarding-next-btn').innerHTML = onboardingIdx === onboardingSteps.length - 1 ? 'Finish <i data-lucide="check" class="w-3.5 h-3.5"></i>' : 'Continue <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>';
       lucide.createIcons();
     }
     function nextOnboardingStep() {
-      if (currentStepIndex < onboardingSteps.length - 1) {
-        currentStepIndex++;
-        renderOnboardingStep();
+      if (onboardingIdx < onboardingSteps.length - 1) {
+        onboardingIdx++;
+        renderOnboarding();
       } else {
         closeOnboarding();
       }
     }
     function prevOnboardingStep() {
-      if (currentStepIndex > 0) {
-        currentStepIndex--;
-        renderOnboardingStep();
+      if (onboardingIdx > 0) {
+        onboardingIdx--;
+        renderOnboarding();
       }
     }
-
-    function scrollToTop() {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    // =========================================================================
-    // Analytics Section — live data from API
-    // =========================================================================
-    async function refreshAnalytics() {
-      // Fleet status
-      const fleetList = document.getElementById('analytics-fleet-list');
-      if (cachedAmbulances.length > 0) {
-        const avail = cachedAmbulances.filter(a => a.status === 'AVAILABLE').length;
-        const total = cachedAmbulances.length;
-        fleetList.innerHTML = cachedAmbulances.map(a => {
-          const isAvail = a.status === 'AVAILABLE';
-          return `
-            <div class="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-              <div>
-                <p class="text-[11px] font-mono font-bold text-white">${a.call_sign}</p>
-                <p class="text-[10px] text-slate-500">${a.vehicle_type} · ${a.driver_name || 'Paramedic'}</p>
-              </div>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isAvail ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'} border ${isAvail ? 'border-emerald-500/20' : 'border-amber-500/20'}">
-                ${a.status}
-              </span>
-            </div>`;
-        }).join('');
-        const pct = Math.round((avail/total)*100);
-        document.getElementById('analytics-readiness').textContent = `${pct}%`;
-        document.getElementById('analytics-readiness-bar').style.width = `${pct}%`;
-        document.getElementById('analytics-readiness-bar').className =
-          `h-full rounded-full transition-all duration-700 ${pct === 100 ? 'bg-emerald-500' : pct >= 66 ? 'bg-amber-500' : 'bg-rose-500'}`;
-        document.getElementById('analytics-fleet-time').textContent = new Date().toLocaleTimeString();
-      }
-
-      // Hospital ICU
-      const hospList = document.getElementById('analytics-hospital-list');
-      if (cachedHospitals.length > 0) {
-        hospList.innerHTML = cachedHospitals.map(h => {
-          const pct = h.total_beds > 0 ? Math.round((h.icu_available / h.total_beds) * 100) : 0;
-          return `
-            <div class="flex flex-col gap-1.5 pb-3 border-b border-white/5 last:border-0 last:pb-0">
-              <div class="flex items-center justify-between">
-                <span class="text-[11px] font-semibold text-white">${h.name}</span>
-                <span class="text-[10px] font-mono text-[#5E6AD2]">${h.icu_available} ICU</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <div class="flex-1 bg-white/5 h-1 rounded-full overflow-hidden">
-                  <div class="h-full bg-[#5E6AD2] rounded-full" style="width:${pct}%"></div>
-                </div>
-                <span class="text-[10px] text-slate-500 font-mono">${pct}%</span>
-              </div>
-              <div class="flex items-center gap-3 text-[10px] text-slate-500">
-                <span>Trauma Tier ${h.trauma_level}</span>
-                <span>·</span>
-                <span>${h.total_beds} beds total</span>
-                <span>·</span>
-                <span>Helipad: ${h.has_helipad ? '✓' : '✗'}</span>
-              </div>
-            </div>`;
-        }).join('');
-      }
-
-      // Activity chart — simulated sparkline
-      const chart = document.getElementById('analytics-chart');
-      if (chart && chart.children.length === 0) {
-        const colors = ['#5E6AD2','#F59E0B','#10B981'];
-        const heights = [30,55,40,70,45,60,35,80,50,65,45,75];
-        chart.innerHTML = heights.map((h, i) => {
-          const color = colors[i % 3];
-          return `<div class="flex-1 rounded-t" style="height:${h}%; background:${color}; opacity:0.7;"></div>`;
-        }).join('');
-      }
-    }
-
-    // Connect WebSocket
-    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${wsProto}//${window.location.host}/ws`);
-    ws.onmessage = () => { loadData(); };
 
     loadData();
-    setTimeout(refreshAnalytics, 1500);
-    setInterval(refreshAnalytics, 10000);
+    setInterval(loadData, 10000);
   </script>
 </body>
 </html>
