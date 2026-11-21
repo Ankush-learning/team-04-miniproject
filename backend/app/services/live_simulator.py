@@ -70,7 +70,7 @@ async def ensure_simulated_citizens():
         for email, full_name, _area in SIM_CITIZENS:
             await db.execute(
                 text("""
-                    INSERT INTO public.users (email, password_hash, full_name, role, is_active)
+                    INSERT INTO public.users (email, password_hash, name, role, is_active)
                     VALUES (:email, :pw, :name, 'CITIZEN', TRUE)
                     ON CONFLICT (email) DO NOTHING
                 """),
@@ -360,7 +360,7 @@ async def _spawn_one_emergency() -> Optional[str]:
     """Create a random emergency from a random Hubballi citizen at a random Hubballi road node."""
     async with AsyncSessionLocal() as db:
         citizen = (await db.execute(
-            text("SELECT user_id::text, email, full_name FROM public.users WHERE role = 'CITIZEN' ORDER BY random() LIMIT 1")
+            text("SELECT user_id::text, email, name AS full_name FROM public.users WHERE role = 'CITIZEN' ORDER BY random() LIMIT 1")
         )).mappings().first()
         node = (await db.execute(
             text("SELECT node_id, ST_Y(location) AS lat, ST_X(location) AS lon FROM public.road_nodes ORDER BY random() LIMIT 1")
