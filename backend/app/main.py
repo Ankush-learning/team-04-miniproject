@@ -320,6 +320,8 @@ async def get_incidents(db: AsyncSession = Depends(get_db)):
                e.assigned_ambulance_id::text AS assigned_ambulance_id,
                e.target_hospital_id::text AS target_hospital_id,
                e.eta_seconds, e.remaining_distance_m, e.created_at AS reported_at,
+               e.active_leg,
+               CASE WHEN e.status NOT IN ('COMPLETED','CANCELLED') THEN e.active_route_json ELSE NULL END AS active_route_json,
                a.call_sign AS ambulance_callsign,
                h.name AS hospital_name
         FROM public.emergencies e

@@ -334,7 +334,7 @@ async def _run_autonomous_incident(eid: str):
                 {"aid": aid},
             )
             await db.execute(
-                text("UPDATE public.dispatches SET status = 'COMPLETED', completed_at = NOW() WHERE emergency_id = CAST(:eid AS uuid)"),
+                text("UPDATE public.dispatches SET status = 'COMPLETED' WHERE emergency_id = CAST(:eid AS uuid)"),
                 {"eid": eid},
             )
             await db.execute(
@@ -432,9 +432,22 @@ async def _simulation_loop():
                 _active_mission_tasks.pop(k, None)
 
             if len(_active_mission_tasks) < _stats["max_concurrent"]:
-                eid = await _spawn_one_emergency()
-                if eid:
-                    _active_mission_tasks[eid] = asyncio.create_task(_run_autonomous_incident(eid))
+                # Also pick up any unassigned SIM-* emergency left in RECEIVED
+                orphan_eid = None
+                async with AsyncSessionLocal() as db:
+                    orphan_eid = (await db.execute(
+                        text("""
+                            SELECT emergency_id::text FROM public.emergencies
+                            WHERE status = 'RECEIVED' AND incident_code LIKE 'SIM-%'
+                            ORDER BY created_at ASC LIMIT 1
+                        """)
+                    )).scalar()
+                if orphan_eid and orphan_eid not in _active_mission_tasks:
+                    _active_mission_tasks[orphan_eid] = asyncio.create_task(_run_autonomous_incident(orphan_eid))
+                else:
+                    eid = await _spawn_one_emergency()
+                    if eid:
+                        _active_mission_tasks[eid] = asyncio.create_task(_run_autonomous_incident(eid))
         except asyncio.CancelledError:
             break
         except Exception as exc:
