@@ -152,7 +152,7 @@ async def _run_autonomous_incident(eid: str):
             inc = (await db.execute(
                 text("""
                     SELECT emergency_id::text, status, nearest_node_id,
-                           ST_Y(location) AS lat, ST_X(location) AS lon
+                           ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lon
                     FROM public.emergencies
                     WHERE emergency_id = CAST(:eid AS uuid)
                 """),
@@ -178,10 +178,10 @@ async def _run_autonomous_incident(eid: str):
             hosp = (await db.execute(
                 text("""
                     SELECT hospital_id::text, name, nearest_node_id,
-                           ST_Y(location) AS hlat, ST_X(location) AS hlon
+                           ST_Y(location::geometry) AS hlat, ST_X(location::geometry) AS hlon
                     FROM public.hospitals
                     WHERE nearest_node_id IS NOT NULL
-                    ORDER BY location <-> ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)
+                    ORDER BY location::geometry <-> ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)
                     LIMIT 1
                 """),
                 {"lon": inc["lon"], "lat": inc["lat"]},
