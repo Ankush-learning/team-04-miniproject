@@ -23,6 +23,10 @@ from app.services.gis_loader import load_gis_network_into_engine
 
 app = FastAPI(title=settings.APP_NAME, version="1.0.0")
 
+static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
+os.makedirs(static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
