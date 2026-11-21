@@ -1787,7 +1787,7 @@
         : (prev ? prev.deg : 0);
 
       if (prev && prev.raf) cancelAnimationFrame(prev.raf);
-      const state = { startLat, startLon, targetLat: lat, targetLon: lon, curLat: startLat, curLon: startLon, deg, leg, t0: performance.now(), dur: 720, raf: null };
+      const state = { startLat, startLon, targetLat: lat, targetLon: lon, curLat: startLat, curLon: startLon, deg, leg, t0: performance.now(), dur: 1750, raf: null };
       liveAmbAnimState[ambId] = state;
 
       const icon = navArrowIcon(leg, deg);

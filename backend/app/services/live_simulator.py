@@ -83,8 +83,8 @@ async def _drive_leg(eid: str, aid: str, coords: List[List[float]], total_dist_m
     """Smoothly step an ambulance along real pgRouting road coordinates, updating PostgreSQL & WS."""
     if not coords:
         return
-    # Downsample to ~14-20 smooth steps so each leg completes in ~11-16 seconds for live demos
-    max_steps = 16
+    # Smooth slow steps (~35 steps x 1.8s = ~60s per leg) so faculty can clearly watch every turn
+    max_steps = 35
     stride = max(1, len(coords) // max_steps)
     sampled = coords[::stride]
     if sampled[-1] != coords[-1]:
@@ -136,7 +136,7 @@ async def _drive_leg(eid: str, aid: str, coords: List[List[float]], total_dist_m
             "remaining_distance_m": round(rem_m, 1),
             "leg": leg_name,
         })
-        await asyncio.sleep(0.75)
+        await asyncio.sleep(1.8)
 
 
 async def _run_autonomous_incident(eid: str):
