@@ -287,22 +287,26 @@ async def operator_history(db: AsyncSession = Depends(get_db), user: Dict[str, A
 # ============================================================================
 @router.get("/gis/roads-bbox")
 async def get_roads_by_bbox(min_lon: float, min_lat: float, max_lon: float, max_lat: float, zoom: int = 12, db: AsyncSession = Depends(get_db)):
-    if zoom <= 12:
+    """3-Tier multi-scale PostGIS road query with display-only ST_SimplifyPreserveTopology (routing graph untouched)."""
+    if zoom <= 10:
         hw_filter = "highway IN ('trunk', 'trunk_link', 'primary', 'primary_link')"
-    elif zoom <= 14:
+        tol = 0.001
+    elif zoom <= 13:
         hw_filter = "highway IN ('trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary')"
+        tol = 0.0002
     else:
         hw_filter = "highway IS NOT NULL"
+        tol = 0.00002
 
     res = await db.execute(
         text(f"""
             SELECT road_id, name, highway, is_oneway, is_blocked, is_emergency_corridor, traffic_multiplier,
-                   ST_AsGeoJSON(geom)::json AS geometry
+                   ST_AsGeoJSON(ST_SimplifyPreserveTopology(geom, :tol))::json AS geometry
             FROM public.roads
             WHERE geom && ST_MakeEnvelope(:min_lon, :min_lat, :max_lon, :max_lat, 4326) AND {hw_filter}
-            LIMIT 1800
+            LIMIT 1500
         """),
-        {"min_lon": min_lon, "min_lat": min_lat, "max_lon": max_lon, "max_lat": max_lat},
+        {"min_lon": min_lon, "min_lat": min_lat, "max_lon": max_lon, "max_lat": max_lat, "tol": tol},
     )
     features = [
         {

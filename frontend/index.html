@@ -669,7 +669,7 @@
 
     function qgisTileLayer() {
       return L.tileLayer('/tiles/{z}/{x}/{y}.png', {
-        minZoom: 10, maxZoom: 17,
+        minZoom: 8, maxZoom: 17,
         attribution: 'IERS Native PyQGIS Project (PostGIS)',
       });
     }
@@ -774,8 +774,12 @@
         layers.full.hospitals.addTo(fullMap);
         layers.full.ambulances.addTo(fullMap);
         layers.full.incidents.addTo(fullMap);
+        let bboxDebounce = null;
         fullMap.on('moveend zoomend', () => {
-          if (document.getElementById('chk-bbox-roads')?.checked) loadBboxRoads();
+          if (bboxDebounce) clearTimeout(bboxDebounce);
+          bboxDebounce = setTimeout(() => {
+            if (document.getElementById('chk-bbox-roads')?.checked) loadBboxRoads();
+          }, 180);
         });
       }
       setTimeout(() => { fullMap.invalidateSize(); loadBboxRoads(); }, 80);

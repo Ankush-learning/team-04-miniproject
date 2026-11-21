@@ -107,20 +107,29 @@ def tile_to_4326_bbox(z: int, x: int, y: int) -> QgsRectangle:
 
 
 def render_tile_png(z: int, x: int, y: int) -> bytes:
-    cache_path = os.path.join(CACHE_DIR, f"v2_{z}_{x}_{y}.png")
+    cache_path = os.path.join(CACHE_DIR, f"v3_{z}_{x}_{y}.png")
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
             return f.read()
 
     bbox = tile_to_4326_bbox(z, x, y)
+    # 3-Tier Multi-Scale Filtering (display only; routing graph untouched)
+    if z <= 10:
+        subset = "highway IN ('trunk','trunk_link','primary','primary_link')"
+    elif z <= 13:
+        subset = "highway IN ('trunk','trunk_link','primary','primary_link','secondary','secondary_link','tertiary')"
+    else:
+        subset = ""
+
     with RENDER_LOCK:
+        roads_lyr.setSubsetString(subset)
         settings = QgsMapSettings()
         settings.setTransformContext(project.transformContext())
         settings.setLayers(render_layers)
         settings.setOutputSize(QSize(256, 256))
         settings.setDestinationCrs(CRS_4326)
         settings.setExtent(bbox)
-        settings.setBackgroundColor(QColor(248, 249, 250))  # Crisp clean cartographic off-white
+        settings.setBackgroundColor(QColor(248, 249, 250))
         settings.setFlag(QgsMapSettings.Antialiasing, True)
         settings.setFlag(QgsMapSettings.DrawLabeling, z >= 13)
 
