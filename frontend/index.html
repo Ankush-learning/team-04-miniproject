@@ -462,29 +462,40 @@
           <div id="disp-hospitals-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs"></div>
         </section>
 
-        <!-- DISPATCHER ROUTE OPTIMISATION -->
+        <!-- DISPATCHER ROUTE OPTIMISATION (Interactive Vehicle Constraints + Live Closure Rerouting) -->
         <section id="view-disp-routing" class="view-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div class="lg:col-span-4 bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-4 text-xs">
-            <h3 class="">Route Optimisation (Dijkstra &amp; A*)</h3>
+          <div class="lg:col-span-4 bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-4">
+            <h3>Route Optimisation</h3>
             <select id="rt-algo" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]">
-              <option value="DIJKSTRA">pgRouting Dijkstra (pgr_dijkstra)</option>
-              <option value="ASTAR">pgRouting A* (pgr_astar)</option>
+              <option value="DIJKSTRA">Dijkstra (pgr_dijkstra)</option>
+              <option value="ASTAR">A* Heuristic (pgr_astar)</option>
             </select>
             <select id="rt-preset" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]">
               <option value="15.4590,75.0112,15.369641,75.123161">Dharwad Civil Hospital → KIMS Hubballi</option>
               <option value="15.3647,75.1240,15.35258,75.12439">Vidyanagar → KLE Suchirayu Hospital</option>
               <option value="15.46444,75.01067,15.4215,75.0528">District Hospital Dharwad → SDM Medical</option>
             </select>
-            <button onclick="runRouteComparison()" class="w-full py-2.5 rounded-xl bg-[#1C1D21] text-[#B8F432] font-semibold">
-              Compare Normal Vehicle vs Ambulance
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-caption text-[#6E737D] mb-1">Vehicle Height (m)</label>
+                <input id="rt-height" type="number" step="0.1" value="2.4" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] font-mono" />
+              </div>
+              <div>
+                <label class="block text-caption text-[#6E737D] mb-1">Vehicle Width (m)</label>
+                <input id="rt-width" type="number" step="0.1" value="2.2" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] font-mono" />
+              </div>
+            </div>
+            <button onclick="runRouteComparison()" class="w-full py-2.5 rounded-xl bg-[#1C1D21] text-[#B8F432]">
+              Compare Normal vs Ambulance
             </button>
-            <button onclick="animateDispatcherRoute()" class="w-full py-2 rounded-xl border border-[#E6E8EC] hover:bg-[#F4F5F7] font-semibold">
-              Animate Ambulance Along Road Geometry
-            </button>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="blockMidRouteAndReroute()" class="py-2 rounded-xl border border-[#EF4444] text-[#EF4444] text-small">Block Mid-Route</button>
+              <button onclick="resetTrafficSim(); runRouteComparison();" class="py-2 rounded-xl border border-[#E6E8EC] text-small">Reopen All Roads</button>
+            </div>
             <div id="rt-results" class="space-y-3 pt-2 border-t border-[#E6E8EC]"></div>
           </div>
           <div class="lg:col-span-8 bg-white rounded-2xl border border-[#E6E8EC] overflow-hidden">
-            <div id="route-map" class="w-full h-[540px]"></div>
+            <div id="route-map" class="w-full h-[600px]"></div>
           </div>
         </section>
 
@@ -1058,24 +1069,44 @@
       loadAllDispatcherData();
     }
 
+    let lastComparedEdgeIds = [];
+
     async function runRouteComparison() {
       const [slat, slon, elat, elon] = document.getElementById('rt-preset').value.split(',').map(Number);
       const algo = document.getElementById('rt-algo').value;
+      const vh = parseFloat(document.getElementById('rt-height')?.value || '2.4');
+      const vw = parseFloat(document.getElementById('rt-width')?.value || '2.2');
       const res = await apiFetch('/api/v1/routing/compare', {
         method: 'POST',
-        body: JSON.stringify({ start_lat: slat, start_lon: slon, end_lat: elat, end_lon: elon, algorithm: algo }),
+        body: JSON.stringify({ start_lat: slat, start_lon: slon, end_lat: elat, end_lon: elon, algorithm: algo, vehicle_height: vh, vehicle_width: vw }),
       });
       layers.route.clearLayers();
       if (res.normal_vehicle) L.polyline(res.normal_vehicle.coordinates, { color: '#6E737D', weight: 4, dashArray: '6,6' }).addTo(layers.route);
       if (res.ambulance) {
         activeRouteCoords = res.ambulance.coordinates;
+        lastComparedEdgeIds = res.ambulance.edge_ids || [];
         const line = L.polyline(activeRouteCoords, { color: '#1C1D21', weight: 5 }).addTo(layers.route);
         routeMap.fitBounds(line.getBounds(), { padding: [30, 30] });
       }
       document.getElementById('rt-results').innerHTML = `
-        <div class="p-3 rounded-xl bg-[#F4F5F7]"><b>Normal Vehicle:</b> ${res.normal_vehicle?.total_distance_km} km · ${res.normal_vehicle?.eta_minutes} min (Contraflow: 0)</div>
-        <div class="p-3 rounded-xl bg-[#1C1D21] text-[#B8F432]"><b>Ambulance:</b> ${res.ambulance?.total_distance_km} km · ${res.ambulance?.eta_minutes} min (Contraflow: ${res.ambulance?.contraflow_edges_used})</div>
+        <div class="text-caption font-mono text-[#6E737D]">KNN Nodes: ${res.start_node} → ${res.end_node} · Clearance: ${vh}m × ${vw}m</div>
+        <div class="p-3 rounded-xl bg-[#F4F5F7]">
+          <div class="font-bold">Ordinary Vehicle (Strict One-Way)</div>
+          <div class="text-small">${res.normal_vehicle ? `${res.normal_vehicle.total_distance_km} km · ${Math.round(res.normal_vehicle.total_duration_seconds)}s (${res.normal_vehicle.edge_count} edges)` : 'No feasible path under clearance'}</div>
+        </div>
+        <div class="p-3 rounded-xl bg-[#1C1D21] text-white">
+          <div class="font-bold text-[#B8F432]">Ambulance (Emergency Exemptions)</div>
+          <div class="text-small">${res.ambulance ? `${res.ambulance.total_distance_km} km · ${Math.round(res.ambulance.total_duration_seconds)}s (${res.ambulance.edge_count} edges · ${res.ambulance.contraflow_edges_used} contraflow)` : 'No feasible path under clearance'}</div>
+          ${res.ambulance?.road_summary ? `<div class="text-caption text-white/60 mt-1">Via: ${res.ambulance.road_summary.slice(0, 4).join(' → ')}</div>` : ''}
+        </div>
       `;
+    }
+
+    async function blockMidRouteAndReroute() {
+      if (!lastComparedEdgeIds.length) return alert('Run a route comparison first.');
+      const midRoadId = lastComparedEdgeIds[Math.floor(lastComparedEdgeIds.length / 2)];
+      await apiFetch('/api/v1/traffic/road-closure', { method: 'POST', body: JSON.stringify({ road_id: midRoadId, is_blocked: true }) });
+      await runRouteComparison();
     }
 
     function animateDispatcherRoute() {

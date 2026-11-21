@@ -442,9 +442,17 @@ async def compare_normal_vs_ambulance(payload: dict, db: AsyncSession = Depends(
     sn = await find_nearest_road_node(db, float(payload["start_lat"]), float(payload["start_lon"]))
     en = await find_nearest_road_node(db, float(payload["end_lat"]), float(payload["end_lon"]))
     algo = (payload.get("algorithm") or "DIJKSTRA").upper()
-    normal_route = await compute_pgrouting_path(db, sn[0], en[0], algorithm=algo, vehicle_mode="NORMAL")
-    amb_route = await compute_pgrouting_path(db, sn[0], en[0], algorithm=algo, vehicle_mode="AMBULANCE")
-    return {"algorithm": algo, "normal_vehicle": normal_route, "ambulance": amb_route}
+    vh = float(payload.get("vehicle_height", 2.4))
+    vw = float(payload.get("vehicle_width", 2.2))
+    normal_route = await compute_pgrouting_path(db, sn[0], en[0], algorithm=algo, vehicle_mode="NORMAL", vehicle_height=vh, vehicle_width=vw)
+    amb_route = await compute_pgrouting_path(db, sn[0], en[0], algorithm=algo, vehicle_mode="AMBULANCE", vehicle_height=vh, vehicle_width=vw)
+    saved_s = round(normal_route["total_duration_seconds"] - amb_route["total_duration_seconds"], 1) if (normal_route and amb_route) else None
+    return {
+        "algorithm": algo, "start_node": sn[0], "end_node": en[0],
+        "vehicle_height": vh, "vehicle_width": vw,
+        "time_saved_seconds": saved_s,
+        "normal_vehicle": normal_route, "ambulance": amb_route,
+    }
 
 
 @app.get("/api/v1/traffic/summary")
@@ -478,6 +486,15 @@ async def toggle_corridor(payload: dict, db: AsyncSession = Depends(get_db), _: 
     await db.execute(text("UPDATE public.roads SET is_emergency_corridor = :a WHERE highway IN ('trunk','primary')"), {"a": active})
     await db.commit()
     return {"emergency_corridor_active": active}
+
+
+@app.post("/api/v1/traffic/road-closure")
+async def toggle_road_closure(payload: dict, db: AsyncSession = Depends(get_db), _: Dict[str, Any] = Depends(require_roles("DISPATCHER"))):
+    road_id = int(payload["road_id"])
+    blocked = bool(payload.get("is_blocked", True))
+    await db.execute(text("UPDATE public.roads SET is_blocked = :b WHERE road_id = :rid"), {"b": blocked, "rid": road_id})
+    await db.commit()
+    return {"road_id": road_id, "is_blocked": blocked}
 
 
 @app.post("/api/v1/traffic/reset")
