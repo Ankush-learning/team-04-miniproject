@@ -1,785 +1,1094 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IERS — Hubballi–Dharwad Emergency Response System</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IERS — Intelligent Emergency Response System</title>
 
-  <!-- Typography -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'Inter', 'sans-serif'],
             mono: ['JetBrains Mono', 'monospace'],
           },
           colors: {
-            brand: {
-              lime: '#B8F432',
-              limeDark: '#9FE617',
-              purple: '#B3A1F8',
-              purpleDark: '#8F77ED',
+            iers: {
               dark: '#1C1D21',
-              charcoal: '#24262B',
-              border: '#E8EAED',
-              subtle: '#8C9199'
+              charcoal: '#26282E',
+              lime: '#B8F432',
+              limeHover: '#A6E61E',
+              lavender: '#B3A1F8',
+              canvas: '#F4F5F7',
+              border: '#E6E8EC',
+              muted: '#6E737D',
+              danger: '#EF4444',
             }
           }
         }
       }
-    }
+    };
   </script>
 
-  <!-- Leaflet CSS & JS (Offline, bound to direct QGIS raster + PostGIS GeoJSON overlays) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #E2E4E8; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #CBD0D8; }
-
-    /* Map styling for QGIS raster overlay */
-    .leaflet-container {
-      background: #F5F6F9 !important;
-      font-family: 'Inter', sans-serif !important;
+    ::-webkit-scrollbar-thumb { background: #D5D8DF; border-radius: 9999px; }
+    .leaflet-container { background: #F6F7F9 !important; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif !important; }
+    .view-panel { animation: fadeSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
     }
-
-    /* Pulse animations for active emergency units */
-    @keyframes pulseLime {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(184, 244, 50, 0.7); }
-      70% { transform: scale(1); box-shadow: 0 0 0 12px rgba(184, 244, 50, 0); }
-      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(184, 244, 50, 0); }
+    .pulse-ring { animation: pulseRing 2s cubic-bezier(0.24, 0, 0.38, 1) infinite; }
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(184, 244, 50, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(184, 244, 50, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(184, 244, 50, 0); }
     }
-    .status-pulse-lime {
-      animation: pulseLime 2s infinite;
-    }
-
-    /* Bubble elements */
-    .bubble-circle {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      border-radius: 50%;
-      color: #FFFFFF;
-      transition: transform 0.25s ease;
-    }
-    .bubble-circle:hover {
-      transform: scale(1.05);
-    }
+    .nav-item.active { background: #FFFFFF; color: #1C1D21; font-weight: 600; }
   </style>
 </head>
-<body class="bg-[#F4F5F7] text-[#1C1D21] antialiased min-h-screen flex selection:bg-[#B8F432] selection:text-black">
+<body class="bg-[#F4F5F7] text-[#1C1D21] font-sans min-h-screen overflow-x-hidden selection:bg-[#B8F432] selection:text-[#1C1D21]">
 
   <!-- ======================================================================= -->
-  <!-- 1. LEFT SIDEBAR (Dark Charcoal #1C1D21 matching reference design)       -->
+  <!-- ROLE-BASED LOGIN GATE                                                   -->
   <!-- ======================================================================= -->
-  <aside class="w-64 bg-[#1C1D21] text-white flex flex-col justify-between p-6 select-none shrink-0 min-h-screen sticky top-0 h-screen z-30">
-    
-    <div class="space-y-8">
-      <!-- Brand Logo -->
-      <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-xl bg-[#B8F432] flex items-center justify-center text-black font-black text-lg">
-          ✦
-        </div>
-        <span class="text-xl font-bold tracking-tight text-white">iers</span>
-      </div>
-
-      <!-- Navigation Links -->
-      <nav class="space-y-1.5 text-xs font-semibold">
-        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-white text-[#1C1D21] transition">
+  <div id="login-screen" class="fixed inset-0 z-50 bg-[#1C1D21] flex items-center justify-center p-6">
+    <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-12 bg-white rounded-[28px] overflow-hidden shadow-2xl">
+      <!-- Left Brand Column -->
+      <div class="md:col-span-5 bg-[#1C1D21] text-white p-8 flex flex-col justify-between border-r border-white/10">
+        <div>
           <div class="flex items-center gap-3">
-            <i data-lucide="layout-grid" class="w-4 h-4"></i>
-            <span>Dashboard</span>
+            <div class="w-9 h-9 rounded-xl bg-[#B8F432] text-[#1C1D21] flex items-center justify-center">
+              <i data-lucide="activity" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="text-lg font-bold tracking-tight">IERS</div>
+              <div class="text-[11px] text-white/50 font-mono">HUBBALLI-DHARWAD METRO</div>
+            </div>
           </div>
-          <span class="w-5 h-5 rounded-full bg-[#B8F432] text-black text-[10px] font-bold flex items-center justify-center">4</span>
-        </button>
-
-        <button onclick="switchTab('mapview')" id="nav-mapview" class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[#8E929B] hover:text-white hover:bg-white/5 transition">
-          <i data-lucide="map" class="w-4 h-4"></i>
-          <span>Metropolitan GIS Map</span>
-        </button>
-
-        <button onclick="openDiagnosticsModal()" id="nav-fleet" class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[#8E929B] hover:text-white hover:bg-white/5 transition">
-          <i data-lucide="truck" class="w-4 h-4"></i>
-          <span>Ambulance Fleet</span>
-        </button>
-
-        <button onclick="openDiagnosticsModal()" id="nav-hospitals" class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[#8E929B] hover:text-white hover:bg-white/5 transition">
-          <i data-lucide="cross" class="w-4 h-4"></i>
-          <span>Hospitals &amp; Trauma</span>
-        </button>
-
-        <button onclick="openUniversalSearch()" class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[#8E929B] hover:text-white hover:bg-white/5 transition">
-          <i data-lucide="search" class="w-4 h-4"></i>
-          <span>Search (⌘K)</span>
-        </button>
-      </nav>
-    </div>
-
-    <!-- Bottom Status Card (QGIS & PostGIS Connection Info) -->
-    <div class="rounded-3xl bg-[#B8F432] p-5 text-black flex flex-col justify-between gap-3 shadow-sm">
-      <div>
-        <div class="flex items-center justify-between">
-          <h4 class="text-sm font-extrabold tracking-tight">QGIS Connected</h4>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/10">PostGIS 3.5</span>
+          <h1 class="text-2xl font-bold tracking-tight mt-8 leading-snug">
+            Intelligent Emergency Response System
+          </h1>
+          <p class="text-xs text-white/60 mt-3 leading-relaxed">
+            Role-based metropolitan dispatch, PostGIS/pgRouting constraint-aware routing, and native QGIS cartography covering 40,394 road segments and 22 real hospitals.
+          </p>
         </div>
-        <p class="text-[11px] text-black/80 mt-1 leading-snug">
-          Hubballi–Dharwad Region: <b>29,385 nodes</b> and <b>40,394 edges</b> active.
-        </p>
-      </div>
-      <button onclick="openDiagnosticsModal()" class="w-full py-2.5 rounded-xl bg-[#1C1D21] text-white text-xs font-bold hover:bg-black transition flex items-center justify-center gap-1.5">
-        <i data-lucide="database" class="w-3.5 h-3.5 text-[#B8F432]"></i> View SQL Diagnostics
-      </button>
-    </div>
 
-  </aside>
+        <div class="space-y-2.5 pt-8 border-t border-white/10 text-[11px] text-white/60">
+          <div class="flex items-center gap-2"><i data-lucide="layers" class="w-3.5 h-3.5 text-[#B8F432]"></i> Native QGIS XYZ Tile Engine</div>
+          <div class="flex items-center gap-2"><i data-lucide="git-branch" class="w-3.5 h-3.5 text-[#B8F432]"></i> pgRouting Dijkstra &amp; A* (One-Way Aware)</div>
+          <div class="flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-[#B8F432]"></i> JWT Role-Based Access Control</div>
+        </div>
+      </div>
+
+      <!-- Right Auth Form -->
+      <div class="md:col-span-7 p-8 flex flex-col justify-between">
+        <div>
+          <h2 class="text-xl font-bold tracking-tight text-[#1C1D21]">Operator Sign In</h2>
+          <p class="text-xs text-[#6E737D] mt-1">Select a role preset or enter your IERS credentials.</p>
+
+          <!-- Role Quick-Select -->
+          <div class="grid grid-cols-2 gap-2.5 mt-5">
+            <button type="button" onclick="fillRole('dispatcher@iers.gov.in','dispatch123')" class="text-left p-3 rounded-2xl border border-[#E6E8EC] hover:border-[#1C1D21] transition">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-[#1C1D21]">Dispatcher</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#B8F432] text-[#1C1D21] font-semibold">OPS</span>
+              </div>
+              <p class="text-[11px] text-[#6E737D] mt-1">Dispatch, routing, traffic &amp; corridors</p>
+            </button>
+            <button type="button" onclick="fillRole('crew1@iers.gov.in','crew123')" class="text-left p-3 rounded-2xl border border-[#E6E8EC] hover:border-[#1C1D21] transition">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-[#1C1D21]">Ambulance Crew</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#B3A1F8]/30 text-[#1C1D21] font-semibold">ALS-01</span>
+              </div>
+              <p class="text-[11px] text-[#6E737D] mt-1">Assigned missions, GPS &amp; status</p>
+            </button>
+            <button type="button" onclick="fillRole('hospital1@iers.gov.in','hospital123')" class="text-left p-3 rounded-2xl border border-[#E6E8EC] hover:border-[#1C1D21] transition">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-[#1C1D21]">Hospital Staff</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#F4F5F7] text-[#1C1D21] font-semibold">KIMS</span>
+              </div>
+              <p class="text-[11px] text-[#6E737D] mt-1">Inbound units &amp; ICU capacity</p>
+            </button>
+            <button type="button" onclick="fillRole('admin@iers.gov.in','admin123')" class="text-left p-3 rounded-2xl border border-[#E6E8EC] hover:border-[#1C1D21] transition">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-[#1C1D21]">Administrator</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#1C1D21] text-white font-semibold">ADMIN</span>
+              </div>
+              <p class="text-[11px] text-[#6E737D] mt-1">Full system, users &amp; GIS diagnostics</p>
+            </button>
+          </div>
+
+          <form id="login-form" onsubmit="handleLogin(event)" class="space-y-3.5 mt-5">
+            <div>
+              <label class="block text-[11px] font-semibold text-[#6E737D] uppercase tracking-wider mb-1">Email</label>
+              <input id="login-email" type="email" required value="dispatcher@iers.gov.in"
+                     class="w-full px-4 py-2.5 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] text-sm focus:outline-none focus:border-[#1C1D21]" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-[#6E737D] uppercase tracking-wider mb-1">Password</label>
+              <input id="login-password" type="password" required value="dispatch123"
+                     class="w-full px-4 py-2.5 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] text-sm focus:outline-none focus:border-[#1C1D21]" />
+            </div>
+            <div id="login-error" class="hidden text-xs text-[#EF4444] font-medium"></div>
+            <button type="submit" class="w-full py-3 rounded-xl bg-[#1C1D21] hover:bg-black text-[#B8F432] text-sm font-semibold transition flex items-center justify-center gap-2">
+              <span>Sign In to IERS Workspace</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ======================================================================= -->
-  <!-- 2. MAIN APPLICATION CONTENT (Full Width Dashboard & Map)                -->
+  <!-- MAIN APP SHELL (100vw x 100vh Full Viewport)                            -->
   <!-- ======================================================================= -->
-  <div class="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+  <div id="app-shell" class="hidden w-full min-h-screen flex">
 
-    <!-- Top Navigation Header -->
-    <header class="h-20 bg-white border-b border-[#E8EAED] px-8 flex items-center justify-between select-none sticky top-0 z-20">
-      
-      <!-- User Profile Badge -->
-      <div class="flex items-center gap-3.5">
-        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" class="w-10 h-10 rounded-2xl object-cover border border-[#E8EAED] shadow-xs">
-        <div>
-          <div class="flex items-center gap-1.5 cursor-pointer">
-            <span class="text-sm font-bold text-[#1C1D21]">Chief Dispatcher</span>
-            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-[#8C9199]"></i>
+    <!-- LEFT SIDEBAR -->
+    <aside class="w-64 bg-[#1C1D21] text-white flex flex-col justify-between p-5 shrink-0 sticky top-0 h-screen select-none z-30">
+      <div class="space-y-6 overflow-y-auto">
+        <!-- Brand -->
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-[#B8F432] text-[#1C1D21] flex items-center justify-center">
+              <i data-lucide="activity" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <div class="text-base font-bold tracking-tight leading-none">IERS</div>
+              <div class="text-[10px] text-white/50 font-mono mt-0.5">PostGIS · QGIS</div>
+            </div>
           </div>
-          <p class="text-xs text-[#8C9199]">iers.metro@karnataka.gov.in</p>
+          <span id="sidebar-role-badge" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-[#B8F432]">ROLE</span>
         </div>
+
+        <!-- Nav Items -->
+        <nav id="sidebar-nav" class="space-y-1 text-xs">
+          <button data-view="dashboard" onclick="switchView('dashboard')" class="nav-item active w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/70 hover:text-white hover:bg-white/5 transition">
+            <i data-lucide="layout-grid" class="w-4 h-4"></i><span>Operations Dashboard</span>
+          </button>
+          <button data-view="map" onclick="switchView('map')" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/70 hover:text-white hover:bg-white/5 transition">
+            <i data-lucide="map" class="w-4 h-4"></i><span>Metropolitan GIS Map</span>
+          </button>
+          <button data-view="emergencies" onclick="switchView('emergencies')" class="nav-item w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-white/70 hover:text-white hover:bg-white/5 transition">
+            <span class="flex items-center gap-3"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span>Emergency Queue</span></span>
+            <span id="nav-inc-count" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[#B8F432] text-[#1C1D21] font-bold">0</span>
+          </button>
+          <button data-view="fleet" onclick="switchView('fleet')" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/70 hover:text-white hover:bg-white/5 transition">
+            <i data-lucide="truck" class="w-4 h-4"></i><span>Ambulance Fleet</span>
+          </button>
+          <button data-view="hospitals" onclick="switchView('hospitals')" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/70 hover:text-white hover:bg-white/5 transition">
+            <i data-lucide="building-2" class="w-4 h-4"></i><span>Hospitals &amp; Trauma</span>
+          </button>
+          <button data-view="routing" onclick="switchView('routing')" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/70 hover:text-white hover:bg-white/5 transition">
+            <i data-lucide="route" class="w-4 h-4"></i><span>Route Optimisation</span>
+          </button>
+          <button data-view="traffic" data-roles="DISPATCHER,ADMIN" onclick="switchView('traffic')" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/70 hover:text-white hover:bg-white/5 transition">
+            <i data-lucide="gauge" class="w-4 h-4"></i><span>Traffic Simulation</span>
+          </button>
+          <button data-view="analytics" onclick="switchView('analytics')" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-white/70 hover:text-white hover:bg-white/5 transition">
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i><span>Analytics &amp; GIS</span>
+          </button>
+        </nav>
       </div>
 
-      <!-- Center Universal Search Bar (Airbnb Style) -->
-      <div onclick="openUniversalSearch()" class="hidden md:flex items-center gap-3 px-5 py-2.5 bg-[#F6F7F9] rounded-2xl border border-[#E8EAED] text-xs text-[#8C9199] cursor-pointer w-96 hover:border-black transition">
-        <i data-lucide="search" class="w-4 h-4"></i>
-        <span>Search ambulances, hospitals, intersections...</span>
-        <kbd class="ml-auto font-mono text-[10px] bg-white px-2 py-0.5 rounded-lg border border-[#E8EAED]">⌘K</kbd>
-      </div>
-
-      <!-- Right Actions -->
-      <div class="flex items-center gap-3">
-        <div class="text-right hidden sm:block text-xs">
-          <p class="text-[#8C9199] text-[11px]">21 November, 2026</p>
-          <p class="font-bold text-[#1C1D21]">Hubballi–Dharwad Metro</p>
+      <!-- Bottom Live PostGIS Card + Sign Out -->
+      <div class="space-y-3 pt-4 border-t border-white/10">
+        <div class="rounded-2xl bg-[#B8F432] text-[#1C1D21] p-4">
+          <div class="flex items-center justify-between text-[11px] font-bold">
+            <span>QGIS + PostGIS Live</span>
+            <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/10">5434</span>
+          </div>
+          <p id="sidebar-db-summary" class="text-[11px] text-[#1C1D21]/80 mt-1">Loading spatial telemetry...</p>
         </div>
-        <button onclick="openIncidentModal()" class="px-5 py-2.5 rounded-2xl bg-[#1C1D21] text-[#B8F432] hover:bg-black text-xs font-bold flex items-center gap-2 shadow-sm transition">
-          <i data-lucide="plus" class="w-4 h-4"></i> Dispatch Emergency
+        <button onclick="logout()" class="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-white/70 hover:text-white transition">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i><span>Switch Role / Sign Out</span>
         </button>
       </div>
+    </aside>
 
-    </header>
+    <!-- RIGHT WORKSPACE -->
+    <div class="flex-1 flex flex-col min-w-0">
 
-    <!-- Page Title & Region Headline -->
-    <div class="px-8 pt-8 pb-4">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1C1D21]">Emergency Operations &amp; GIS Telematics</h1>
-          <p class="text-xs text-[#8C9199] mt-0.5">Metropolitan Hubballi–Dharwad urban region · Real-time PostGIS A* routing &amp; ICU bed allocation</p>
-        </div>
-        <div class="flex items-center gap-2 text-xs">
-          <span class="px-3 py-1 rounded-xl bg-white border border-[#E8EAED] font-mono text-[#1C1D21] font-semibold">
-            SRID: 4326 (WGS 84)
+      <!-- TOP HEADER -->
+      <header class="h-16 bg-white border-b border-[#E6E8EC] px-6 flex items-center justify-between sticky top-0 z-20">
+        <div class="flex items-center gap-3">
+          <h2 id="page-title" class="text-base font-bold tracking-tight text-[#1C1D21]">Operations Dashboard</h2>
+          <span id="sim-banner" class="hidden text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#B3A1F8]/25 text-[#1C1D21] font-semibold">
+            SIMULATED TRAFFIC ACTIVE
           </span>
-          <span class="px-3 py-1 rounded-xl bg-[#B8F432] text-black font-bold">
-            PostGIS Connected
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===================================================================== -->
-    <!-- 3. DASHBOARD MAIN GRID (Analytics Left + Full QGIS Map Centerpiece)   -->
-    <!-- ===================================================================== -->
-    <div class="px-8 pb-10 grid grid-cols-1 xl:grid-cols-12 gap-8 flex-1">
-
-      <!-- LEFT COLUMN: Analytics & Dispatch Details (Cols 1-5) -->
-      <div class="xl:col-span-5 flex flex-col gap-6">
-
-        <!-- CARD 1: Metric Proportions with Overlapping Bubbles (Energy Used style) -->
-        <div class="bg-white rounded-[28px] p-6 shadow-sm border border-[#E8EAED] flex flex-col justify-between">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2 text-xs font-bold text-[#1C1D21]">
-              <i data-lucide="zap" class="w-4 h-4 text-[#B8F432] fill-[#B8F432]"></i>
-              <span>Metropolitan Road Network Coverage</span>
-            </div>
-            <button onclick="openDiagnosticsModal()" class="text-[#8C9199] hover:text-black">
-              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
-            </button>
-          </div>
-
-          <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-3xl font-extrabold text-[#1C1D21]">3,780.5<span class="text-lg font-bold"> km</span></span>
-            <span class="px-2 py-0.5 rounded-full bg-[#B8F432] text-black text-[10px] font-bold">100% Valid</span>
-          </div>
-          <p class="text-[11px] text-[#8C9199]">40,394 total road edges &amp; 29,385 vertices connected</p>
-
-          <!-- Overlapping Bubbles (Reference: Purple, Charcoal, Lime) -->
-          <div class="my-6 relative h-44 flex items-center justify-center">
-            <!-- Hubballi Urban (Purple) -->
-            <div class="bubble-circle w-32 h-32 bg-[#B3A1F8] absolute left-6 shadow-sm">
-              <span class="text-lg font-extrabold text-[#1C1D21]">24.8k</span>
-              <span class="text-[10px] text-[#1C1D21]/80 font-medium">Hubballi City</span>
-            </div>
-            <!-- Dharwad Urban (Charcoal) -->
-            <div class="bubble-circle w-28 h-28 bg-[#1C1D21] absolute right-10 shadow-sm">
-              <span class="text-base font-extrabold text-white">12.5k</span>
-              <span class="text-[10px] text-white/80 font-medium">Dharwad City</span>
-            </div>
-            <!-- Highway Corridor (Lime) -->
-            <div class="bubble-circle w-24 h-24 bg-[#B8F432] absolute bottom-0 right-28 shadow-sm">
-              <span class="text-sm font-extrabold text-[#1C1D21]">3.1k</span>
-              <span class="text-[9px] text-[#1C1D21]/80 font-bold uppercase">Corridor</span>
-            </div>
-          </div>
-
-          <!-- Progress Bars -->
-          <div class="space-y-3 pt-2 border-t border-[#F0F1F3] text-xs">
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-[#1C1D21]">61%</span>
-              <div class="flex-1 mx-4 h-2 rounded-full bg-[#F4F5F7] overflow-hidden">
-                <div class="h-full bg-[#B3A1F8] rounded-full" style="width: 61%;"></div>
-              </div>
-              <span class="text-[#8C9199] text-[11px]">Hubballi Urban Arterials</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-[#1C1D21]">31%</span>
-              <div class="flex-1 mx-4 h-2 rounded-full bg-[#F4F5F7] overflow-hidden">
-                <div class="h-full bg-[#1C1D21] rounded-full" style="width: 31%;"></div>
-              </div>
-              <span class="text-[#8C9199] text-[11px]">Dharwad Secondary Links</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-[#1C1D21]">8%</span>
-              <div class="flex-1 mx-4 h-2 rounded-full bg-[#F4F5F7] overflow-hidden">
-                <div class="h-full bg-[#B8F432] rounded-full" style="width: 8%;"></div>
-              </div>
-              <span class="text-[#8C9199] text-[11px]">Intercity Highway Corridor</span>
-            </div>
-          </div>
-
         </div>
 
-        <!-- CARD 2: Active Dispatch & Paramedic Crew Telematics -->
-        <div class="bg-white rounded-[28px] p-6 shadow-sm border border-[#E8EAED] flex flex-col justify-between">
-          <div class="flex items-center justify-between pb-3 border-b border-[#F0F1F3]">
+        <div class="flex items-center gap-3">
+          <div class="text-right hidden sm:block">
+            <div id="header-user-name" class="text-xs font-semibold text-[#1C1D21]">Operator</div>
+            <div id="header-user-email" class="text-[11px] text-[#6E737D]">—</div>
+          </div>
+          <button id="btn-new-emergency" onclick="switchView('emergencies')" class="px-4 py-2 rounded-xl bg-[#1C1D21] hover:bg-black text-[#B8F432] text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i><span>New Emergency</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- MAIN CONTENT CONTAINER -->
+      <main class="flex-1 p-6 space-y-6">
+
+        <!-- =============================================================== -->
+        <!-- VIEW 1: OPERATIONS DASHBOARD                                    -->
+        <!-- =============================================================== -->
+        <section id="view-dashboard" class="view-panel space-y-6">
+          <!-- KPI Row (100% live DB queries) -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-2xl p-5 border border-[#E6E8EC]">
+              <div class="flex items-center justify-between text-xs text-[#6E737D]">
+                <span>Active Emergencies</span>
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-[#EF4444]"></i>
+              </div>
+              <div id="kpi-active-inc" class="text-3xl font-bold mt-2 tracking-tight">—</div>
+              <div id="kpi-p1-sub" class="text-[11px] text-[#6E737D] mt-1">P1 Critical: —</div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-[#E6E8EC]">
+              <div class="flex items-center justify-between text-xs text-[#6E737D]">
+                <span>Available Ambulances</span>
+                <i data-lucide="truck" class="w-4 h-4 text-[#1C1D21]"></i>
+              </div>
+              <div id="kpi-avail-amb" class="text-3xl font-bold mt-2 tracking-tight">—</div>
+              <div id="kpi-amb-sub" class="text-[11px] text-[#6E737D] mt-1">Total fleet: —</div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-[#E6E8EC]">
+              <div class="flex items-center justify-between text-xs text-[#6E737D]">
+                <span>Open ICU Beds</span>
+                <i data-lucide="building-2" class="w-4 h-4 text-[#B3A1F8]"></i>
+              </div>
+              <div id="kpi-icu-beds" class="text-3xl font-bold mt-2 tracking-tight">—</div>
+              <div id="kpi-hosp-sub" class="text-[11px] text-[#6E737D] mt-1">Real OSM hospitals: —</div>
+            </div>
+            <div class="bg-[#1C1D21] text-white rounded-2xl p-5">
+              <div class="flex items-center justify-between text-xs text-white/60">
+                <span>PostGIS Road Network</span>
+                <i data-lucide="map-pin" class="w-4 h-4 text-[#B8F432]"></i>
+              </div>
+              <div id="kpi-road-km" class="text-3xl font-bold mt-2 tracking-tight text-[#B8F432]">—</div>
+              <div id="kpi-road-sub" class="text-[11px] text-white/60 mt-1">Edges · Nodes</div>
+            </div>
+          </div>
+
+          <!-- Dashboard Grid: Live Map + Queue -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-8 bg-white rounded-2xl border border-[#E6E8EC] overflow-hidden flex flex-col">
+              <div class="px-5 py-3.5 border-b border-[#E6E8EC] flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-bold">Hubballi-Dharwad Live Operations Map</div>
+                  <div class="text-[11px] text-[#6E737D]">Rendered directly from Intelligent_Emergency_Response.qgz (PyQGIS XYZ)</div>
+                </div>
+                <button onclick="switchView('map')" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#F4F5F7] hover:bg-[#E6E8EC] transition">
+                  Open Full Map
+                </button>
+              </div>
+              <div id="dash-map" class="w-full h-[460px]"></div>
+            </div>
+
+            <div class="lg:col-span-4 bg-white rounded-2xl border border-[#E6E8EC] flex flex-col">
+              <div class="px-5 py-3.5 border-b border-[#E6E8EC] flex items-center justify-between">
+                <span class="text-xs font-bold">Priority Emergency Queue</span>
+                <button onclick="refreshAll()" class="text-[#6E737D] hover:text-[#1C1D21]"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></button>
+              </div>
+              <div id="dash-queue" class="flex-1 overflow-y-auto p-4 space-y-2.5 max-h-[460px] text-xs">
+                <div class="text-[#6E737D] text-center py-8">Loading queue...</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- VIEW 2: FULL METROPOLITAN GIS MAP                               -->
+        <!-- =============================================================== -->
+        <section id="view-map" class="view-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-[#E6E8EC] p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7] cursor-pointer">
+                <input type="checkbox" checked onchange="toggleOverlay('hospitals', this.checked)" /> Hospitals (22)
+              </label>
+              <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7] cursor-pointer">
+                <input type="checkbox" checked onchange="toggleOverlay('ambulances', this.checked)" /> Ambulances
+              </label>
+              <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7] cursor-pointer">
+                <input type="checkbox" checked onchange="toggleOverlay('incidents', this.checked)" /> Incidents
+              </label>
+              <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7] cursor-pointer">
+                <input type="checkbox" onchange="toggleRoadOverlay('congested', this.checked)" /> Congested Roads
+              </label>
+              <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7] cursor-pointer">
+                <input type="checkbox" onchange="toggleRoadOverlay('corridors', this.checked)" /> Emergency Corridors
+              </label>
+              <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7] cursor-pointer">
+                <input type="checkbox" onchange="toggleRoadOverlay('blocked', this.checked)" /> Road Closures
+              </label>
+              <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7] cursor-pointer">
+                <input type="checkbox" onchange="toggleRoadOverlay('oneway', this.checked)" /> One-Way Roads
+              </label>
+            </div>
             <div class="flex items-center gap-2">
-              <span class="text-xs font-bold text-[#1C1D21]">Dispatch #29698-98971</span>
-              <span class="px-2.5 py-0.5 rounded-full bg-[#1C1D21] text-[#B8F432] text-[10px] font-bold uppercase tracking-wider">IN TRANSIT</span>
-            </div>
-            <button onclick="togglePriorityCorridor()" class="px-3 py-1.5 rounded-xl bg-[#F4F5F7] hover:bg-[#E8EAED] text-xs font-bold text-[#1C1D21] flex items-center gap-1.5 transition">
-              <i data-lucide="zap" class="w-3.5 h-3.5 text-[#B8F432] fill-black"></i>
-              <span id="corridor-btn-status">Emergency Corridor</span>
-            </button>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4 my-4 text-xs">
-            <div>
-              <p class="text-[10px] text-[#8C9199]">Origin Location</p>
-              <p class="font-bold text-[#1C1D21] mt-0.5" id="disp-origin">Dharwad Jubilee Circle</p>
-              <p class="text-[10px] text-[#8C9199]">Node 17561</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-[#8C9199]">Destination Trauma Hub</p>
-              <p class="font-bold text-[#1C1D21] mt-0.5" id="disp-dest">KIMS Medical Hubballi</p>
-              <p class="text-[10px] text-[#27C93F] font-semibold">Node 28692 · 12 ICU Available</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-[#8C9199]">Metropolitan Route</p>
-              <p class="font-bold text-[#1C1D21] mt-0.5">30.29 km · 253 Hops</p>
-              <p class="text-[10px] text-[#8C9199]">Via Navanagar Highway Bypass</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-[#8C9199]">Constrained A* ETA</p>
-              <p class="font-bold text-[#27C93F] mt-0.5 text-base" id="disp-eta">37.0 mins</p>
-              <p class="text-[10px] text-[#8C9199]">Height &lt; 2.8m Verified</p>
+              <button onclick="fitMetroBounds(fullMap)" class="px-3 py-1.5 rounded-lg bg-[#1C1D21] text-[#B8F432] font-semibold">Fit Hubballi-Dharwad</button>
+              <button onclick="toggleFullscreenMap()" class="px-3 py-1.5 rounded-lg border border-[#E6E8EC] hover:bg-[#F4F5F7] font-semibold">Fullscreen</button>
             </div>
           </div>
 
-          <!-- Paramedic Courier Profile Row -->
-          <div class="pt-3 border-t border-[#F0F1F3] flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80" class="w-9 h-9 rounded-full object-cover border border-[#E8EAED]">
+          <div id="full-map-wrapper" class="relative bg-white rounded-2xl border border-[#E6E8EC] overflow-hidden">
+            <div id="full-map" class="w-full h-[calc(100vh-220px)] min-h-[540px]"></div>
+            <!-- Legend -->
+            <div class="absolute bottom-4 left-4 z-[1000] bg-white/95 backdrop-blur border border-[#E6E8EC] rounded-xl p-3 text-[11px] space-y-1.5 shadow-sm">
+              <div class="font-bold text-[#1C1D21]">Map Legend (QGIS + PostGIS)</div>
+              <div class="flex items-center gap-2"><span class="w-4 h-0.5 bg-[#1C1D21] inline-block"></span> Trunk / Primary Arterial</div>
+              <div class="flex items-center gap-2"><span class="w-4 h-0.5 bg-[#64748B] inline-block"></span> Secondary / Tertiary</div>
+              <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-[#B8F432] border border-[#1C1D21] inline-block"></span> Ambulance Unit</div>
+              <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-[#B3A1F8] border border-[#1C1D21] inline-block"></span> Hospital (Real OSM)</div>
+              <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-[#EF4444] inline-block"></span> Active Emergency / P1</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- VIEW 3: EMERGENCY MANAGEMENT                                    -->
+        <!-- =============================================================== -->
+        <section id="view-emergencies" class="view-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Registration Form -->
+          <div class="lg:col-span-5 bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-4">
+            <div>
+              <h3 class="text-sm font-bold">Register &amp; Dispatch Emergency</h3>
+              <p class="text-[11px] text-[#6E737D]">Rule-based P1-P4 classification with atomic ambulance allocation &amp; pgRouting.</p>
+            </div>
+            <form id="emergency-form" onsubmit="submitEmergency(event)" class="space-y-3 text-xs">
               <div>
-                <p class="text-[10px] text-[#8C9199]">Assigned Paramedic</p>
-                <p class="text-xs font-bold text-[#1C1D21]">Harris Whitaker (ALS-01)</p>
+                <label class="block text-[#6E737D] font-medium mb-1">Incident Type</label>
+                <input id="inc-type" type="text" required value="Acute Cardiac Arrest" class="w-full px-3.5 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]" />
               </div>
-            </div>
-            <button onclick="alert('VoIP communication channel open with Unit ALS-01.');" class="w-8 h-8 rounded-full border border-[#E8EAED] hover:bg-[#F4F5F7] flex items-center justify-center text-[#1C1D21]">
-              <i data-lucide="phone" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-
-        </div>
-
-      </div>
-
-      <!-- RIGHT COLUMN: Direct QGIS Map Canvas Centerpiece (Cols 6-12) -->
-      <div class="xl:col-span-7 flex flex-col gap-6">
-
-        <!-- 3 Top Metric Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="bg-white rounded-[24px] p-5 shadow-sm border border-[#E8EAED]">
-            <div class="flex items-center justify-between text-xs text-[#8C9199]">
-              <div class="flex items-center gap-1.5 font-bold text-[#1C1D21]">
-                <i data-lucide="activity" class="w-4 h-4 text-[#FF3B30]"></i>
-                <span>A* Routing Latency</span>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[#6E737D] font-medium mb-1">Priority (Auto or Override)</label>
+                  <select id="inc-priority" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]">
+                    <option value="">Auto-Classify (Rule Engine)</option>
+                    <option value="P1">P1 — Critical / Life-Threatening</option>
+                    <option value="P2">P2 — Urgent</option>
+                    <option value="P3">P3 — Moderate</option>
+                    <option value="P4">P4 — Low / Non-Urgent</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[#6E737D] font-medium mb-1">People Affected</label>
+                  <input id="inc-people" type="number" min="1" value="1" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]" />
+                </div>
               </div>
-            </div>
-            <div class="mt-3 flex items-baseline gap-1">
-              <span class="text-3xl font-extrabold text-[#1C1D21]">0.4</span>
-              <span class="text-xs text-[#8C9199]">ms</span>
-            </div>
-            <p class="text-[10px] text-[#27C93F] font-semibold mt-1">PostGIS GiST Indexed</p>
-          </div>
-
-          <div class="bg-white rounded-[24px] p-5 shadow-sm border border-[#E8EAED]">
-            <div class="flex items-center justify-between text-xs text-[#8C9199]">
-              <div class="flex items-center gap-1.5 font-bold text-[#1C1D21]">
-                <i data-lucide="cross" class="w-4 h-4 text-[#B3A1F8]"></i>
-                <span>Metropolitan ICU</span>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[#6E737D] font-medium mb-1">Latitude</label>
+                  <input id="inc-lat" type="number" step="0.000001" value="15.364700" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] font-mono" />
+                </div>
+                <div>
+                  <label class="block text-[#6E737D] font-medium mb-1">Longitude</label>
+                  <input id="inc-lon" type="number" step="0.000001" value="75.124000" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] font-mono" />
+                </div>
               </div>
-            </div>
-            <div class="mt-3 flex items-baseline gap-1">
-              <span class="text-3xl font-extrabold text-[#1C1D21]">28</span>
-              <span class="text-xs text-[#8C9199]">beds open</span>
-            </div>
-            <p class="text-[10px] text-[#8C9199] mt-1">4 Trauma Centres (KIMS, SDM)</p>
-          </div>
-
-          <div class="bg-white rounded-[24px] p-5 shadow-sm border border-[#E8EAED] flex flex-col justify-between">
-            <div class="flex items-center justify-between text-xs text-[#8C9199]">
-              <div class="flex items-center gap-1.5 font-bold text-[#1C1D21]">
-                <i data-lucide="shield-check" class="w-4 h-4 text-[#B8F432] fill-black"></i>
-                <span>Fleet Readiness</span>
+              <div class="flex gap-2">
+                <button type="button" onclick="acquireBrowserGPS()" class="flex-1 py-2 rounded-xl border border-[#E6E8EC] hover:bg-[#F4F5F7] font-semibold flex items-center justify-center gap-1.5">
+                  <i data-lucide="crosshair" class="w-3.5 h-3.5"></i> Use Browser GPS
+                </button>
+                <button type="button" onclick="setPresetPin(15.4589,75.0078)" class="px-3 py-2 rounded-xl border border-[#E6E8EC] hover:bg-[#F4F5F7] font-medium">Dharwad</button>
+                <button type="button" onclick="setPresetPin(15.3647,75.1240)" class="px-3 py-2 rounded-xl border border-[#E6E8EC] hover:bg-[#F4F5F7] font-medium">Hubballi</button>
               </div>
-              <span class="px-1.5 py-0.5 rounded-full bg-[#B8F432] text-black text-[9px] font-bold">100%</span>
-            </div>
-            <div class="mt-2 flex items-baseline gap-1">
-              <span class="text-3xl font-extrabold text-[#1C1D21]">4/4</span>
-              <span class="text-xs text-[#8C9199]">units ready</span>
-            </div>
-            <div class="grid grid-cols-6 gap-1.5 mt-2">
-              <span class="w-2 h-2 rounded-full bg-[#B3A1F8]"></span>
-              <span class="w-2 h-2 rounded-full bg-[#B3A1F8]"></span>
-              <span class="w-2 h-2 rounded-full bg-[#B8F432]"></span>
-              <span class="w-2 h-2 rounded-full bg-[#B8F432]"></span>
-              <span class="w-2 h-2 rounded-full bg-[#1C1D21]"></span>
-              <span class="w-2 h-2 rounded-full bg-[#1C1D21]"></span>
-            </div>
-          </div>
-        </div>
-
-        <!-- CENTERPIECE: DIRECT QGIS MAP CANVAS (Hubballi–Dharwad Entire Metropolitan Area) -->
-        <div class="bg-[#1C1D21] text-white rounded-[28px] p-6 shadow-sm flex-1 flex flex-col relative overflow-hidden min-h-[580px]">
-          
-          <!-- Map Header Controls -->
-          <div class="flex items-center justify-between z-10 pb-4 border-b border-white/10">
-            <div class="flex items-center gap-2.5">
-              <div class="w-3 h-3 rounded-full bg-[#B8F432]"></div>
               <div>
-                <h3 class="text-sm font-bold text-white tracking-tight">QGIS Direct Canvas — Hubballi &amp; Dharwad</h3>
-                <p class="text-[10px] text-white/60">Exported directly from Intelligent_Emergency_Response.qgz · Zero External Tile API</p>
+                <label class="block text-[#6E737D] font-medium mb-1">Description / Caller Notes</label>
+                <textarea id="inc-desc" rows="2" placeholder="Location landmark, patient condition..." class="w-full px-3.5 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]"></textarea>
               </div>
+              <button type="submit" class="w-full py-2.5 rounded-xl bg-[#1C1D21] hover:bg-black text-[#B8F432] font-semibold transition">
+                Create Incident &amp; Auto-Dispatch
+              </button>
+            </form>
+            <div id="inc-submit-result" class="hidden text-xs p-3 rounded-xl bg-[#F4F5F7] border border-[#E6E8EC]"></div>
+          </div>
+
+          <!-- Active Queue & Timeline -->
+          <div class="lg:col-span-7 bg-white rounded-2xl border border-[#E6E8EC] p-6 flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-[#E6E8EC]">
+              <h3 class="text-sm font-bold">Priority Emergency Queue &amp; Status Tracking</h3>
+              <button onclick="loadIncidents()" class="text-xs text-[#6E737D] hover:text-[#1C1D21]">Refresh</button>
             </div>
-            
+            <div id="emergencies-table" class="flex-1 overflow-y-auto divide-y divide-[#E6E8EC] text-xs mt-2"></div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- VIEW 4: AMBULANCE FLEET                                         -->
+        <!-- =============================================================== -->
+        <section id="view-fleet" class="view-panel hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div id="fleet-register-card" data-roles="ADMIN,DISPATCHER" class="lg:col-span-4 bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-3">
+              <h3 class="text-sm font-bold">Register Ambulance Unit</h3>
+              <form onsubmit="registerAmbulance(event)" class="space-y-3 text-xs">
+                <input id="amb-cs" required placeholder="Call Sign (e.g. HUBLI-ALS-05)" class="w-full px-3.5 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]" />
+                <input id="amb-reg" placeholder="Registration (e.g. KA-25-G-2045)" class="w-full px-3.5 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]" />
+                <select id="amb-type" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]">
+                  <option value="ALS">ALS — Advanced Life Support</option>
+                  <option value="BLS">BLS — Basic Life Support</option>
+                  <option value="FLYER">FLYER — Rapid Response</option>
+                </select>
+                <div class="grid grid-cols-2 gap-2">
+                  <input id="amb-lat" type="number" step="0.0001" value="15.3696" class="px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] font-mono" />
+                  <input id="amb-lon" type="number" step="0.0001" value="75.1231" class="px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7] font-mono" />
+                </div>
+                <button type="submit" class="w-full py-2.5 rounded-xl bg-[#1C1D21] text-[#B8F432] font-semibold">Add Unit to Fleet</button>
+              </form>
+            </div>
+
+            <div class="lg:col-span-8 bg-white rounded-2xl border border-[#E6E8EC] p-6">
+              <div class="flex items-center justify-between pb-3 border-b border-[#E6E8EC]">
+                <h3 class="text-sm font-bold">Active Fleet Directory &amp; Live Status</h3>
+                <span class="text-[11px] text-[#6E737D]">AVAILABLE · ASSIGNED · BUSY · OFFLINE</span>
+              </div>
+              <div id="fleet-list" class="divide-y divide-[#E6E8EC] text-xs mt-2"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- VIEW 5: HOSPITALS & TRAUMA CENTRES                              -->
+        <!-- =============================================================== -->
+        <section id="view-hospitals" class="view-panel hidden space-y-4">
+          <div class="bg-white rounded-2xl border border-[#E6E8EC] p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div class="flex items-center gap-2">
-              <button onclick="recenterQGISMap()" class="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition">
-                <i data-lucide="crosshair" class="w-3.5 h-3.5 text-[#B8F432]"></i> Fit Full Extent
-              </button>
-              <button onclick="openDiagnosticsModal()" class="px-3.5 py-1.5 rounded-xl bg-[#B8F432] text-black text-xs font-bold hover:bg-white transition flex items-center gap-1.5">
-                <i data-lucide="layers" class="w-3.5 h-3.5"></i> 6 QGIS Layers Valid
-              </button>
+              <select id="hosp-city-filter" onchange="loadHospitals()" class="px-3 py-1.5 rounded-lg border border-[#E6E8EC] bg-[#F4F5F7]">
+                <option value="">All Cities (Hubballi &amp; Dharwad)</option>
+                <option value="Hubballi">Hubballi</option>
+                <option value="Dharwad">Dharwad</option>
+              </select>
+              <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F4F5F7]">
+                <input id="hosp-trauma-filter" type="checkbox" onchange="loadHospitals()" /> Trauma Care Only
+              </label>
             </div>
+            <div class="text-[11px] text-[#6E737D]">Coordinates: Real OpenStreetMap (ODbL) · Bed counts: Prototype/Simulated</div>
           </div>
 
-          <!-- Leaflet Interactive Canvas with QGIS Raster Bounds -->
-          <div id="qgis-map" class="flex-1 w-full rounded-2xl overflow-hidden mt-4 relative z-0 min-h-[460px]"></div>
+          <div id="hospitals-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs"></div>
+        </section>
 
-          <!-- Bottom Coordinates & Layer Floating Overlay -->
-          <div class="absolute bottom-10 left-10 z-[1000] bg-white/95 backdrop-blur-md text-[#1C1D21] p-3.5 rounded-2xl border border-white shadow-md flex items-center gap-4 text-xs">
+        <!-- =============================================================== -->
+        <!-- VIEW 6: ROUTE OPTIMISATION (Dijkstra/A*, Normal vs Ambulance)   -->
+        <!-- =============================================================== -->
+        <section id="view-routing" class="view-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-4 bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-4 text-xs">
             <div>
-              <p class="text-[10px] text-[#8C9199]">PostGIS Layer</p>
-              <p class="font-bold text-[#1C1D21]">iers.roads (40,394 edges)</p>
+              <h3 class="text-sm font-bold">Constraint-Aware Route Optimiser</h3>
+              <p class="text-[11px] text-[#6E737D] mt-0.5">Compare Ordinary Vehicle (strict one-way) vs Ambulance (authorized contraflow &amp; emergency corridor) on the real 40,394-edge PostGIS graph.</p>
             </div>
-            <div class="h-6 w-px bg-[#E8EAED]"></div>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-[#6E737D] font-medium mb-1">Algorithm</label>
+                <select id="rt-algo" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]">
+                  <option value="DIJKSTRA">pgRouting Dijkstra (pgr_dijkstra)</option>
+                  <option value="ASTAR">pgRouting A* (pgr_astar)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[#6E737D] font-medium mb-1">Preset Corridor</label>
+                <select id="rt-preset" onchange="applyRoutePreset()" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]">
+                  <option value="15.4590,75.0112,15.369641,75.123161">Dharwad Civil Hospital → KIMS Hubballi (Intercity)</option>
+                  <option value="15.3647,75.1240,15.35258,75.12439">Vidyanagar → KLE Suchirayu Hospital (Intra-Hubballi)</option>
+                  <option value="15.46444,75.01067,15.4215,75.0528">District Hospital Dharwad → SDM Medical (Dharwad)</option>
+                </select>
+              </div>
+              <button onclick="runRouteComparison()" class="w-full py-2.5 rounded-xl bg-[#1C1D21] text-[#B8F432] font-semibold">
+                Compare Normal vs Ambulance Route
+              </button>
+            </div>
+
+            <div id="rt-results" class="space-y-3 pt-2 border-t border-[#E6E8EC]">
+              <div class="text-[#6E737D] text-center py-6">Run comparison to compute live pgRouting paths.</div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-8 bg-white rounded-2xl border border-[#E6E8EC] overflow-hidden">
+            <div id="route-map" class="w-full h-[580px]"></div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- VIEW 7: TRAFFIC SIMULATION (Explicitly Labeled Simulated)       -->
+        <!-- =============================================================== -->
+        <section id="view-traffic" class="view-panel hidden space-y-6">
+          <div class="bg-[#1C1D21] text-white rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p class="text-[10px] text-[#8C9199]">Coverage Bounds</p>
-              <p class="font-bold text-[#27C93F] font-mono">15.2093°N → 15.6164°N</p>
+              <div class="text-[10px] font-mono text-[#B8F432] uppercase tracking-wider">SIMULATED TRAFFIC MODEL — NOT LIVE SENSOR FEED</div>
+              <h3 class="text-base font-bold mt-1">Dynamic Road Weight &amp; Emergency Corridor Controller</h3>
+              <p class="text-xs text-white/60 mt-0.5">Changes update `iers.roads.current_travel_time_s` in PostGIS and immediately affect pgRouting ETAs.</p>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <button onclick="setTrafficLevel('FREE_FLOW')" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-semibold">Free Flow (1.0x)</button>
+              <button onclick="setTrafficLevel('MODERATE')" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 font-semibold">Moderate (1.6x)</button>
+              <button onclick="setTrafficLevel('RUSH_HOUR')" class="px-3.5 py-2 rounded-xl bg-[#B3A1F8] text-[#1C1D21] font-semibold">Rush Hour (2.8x)</button>
+              <button onclick="setTrafficLevel('SEVERE')" class="px-3.5 py-2 rounded-xl bg-[#EF4444] text-white font-semibold">Severe (3.8x)</button>
+              <button onclick="toggleGlobalCorridor(true)" class="px-3.5 py-2 rounded-xl bg-[#B8F432] text-[#1C1D21] font-semibold">Activate Green Corridors</button>
+              <button onclick="resetTrafficSim()" class="px-3.5 py-2 rounded-xl border border-white/20 hover:bg-white/10 font-semibold">Reset All</button>
             </div>
           </div>
 
-        </div>
+          <div id="traffic-stats-grid" class="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs"></div>
+        </section>
 
-      </div>
-
-    </div>
-
-  </div>
-
-  <!-- ========================================================================= -->
-  <!-- MODAL: REPORT & DISPATCH INCIDENT                                         -->
-  <!-- ========================================================================= -->
-  <div id="incident-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-[#E8EAED] flex flex-col gap-4">
-      <div class="flex items-center justify-between pb-3 border-b border-[#F0F1F3]">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl bg-[#1C1D21] text-[#B8F432] flex items-center justify-center font-bold">
-            ✦
+        <!-- =============================================================== -->
+        <!-- VIEW 8: ANALYTICS & GIS DIAGNOSTICS                             -->
+        <!-- =============================================================== -->
+        <section id="view-analytics" class="view-panel hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
+            <div class="bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-3">
+              <h3 class="text-sm font-bold">PostGIS &amp; pgRouting Runtime Diagnostics</h3>
+              <div id="diag-content" class="space-y-2 font-mono text-[11px]"></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-3">
+              <h3 class="text-sm font-bold">Road Network Classification (iers.roads)</h3>
+              <div id="road-classes-content" class="space-y-2"></div>
+            </div>
           </div>
-          <div>
-            <h3 class="text-sm font-bold text-[#1C1D21]">Dispatch Emergency Unit</h3>
-            <p class="text-[11px] text-[#8C9199]">Hubballi–Dharwad Constrained Dijkstra</p>
+
+          <div class="bg-white rounded-2xl border border-[#E6E8EC] p-6 text-xs">
+            <h3 class="text-sm font-bold mb-3">Recent Persisted Route Calculations (iers.route_history)</h3>
+            <div id="route-history-table" class="overflow-x-auto"></div>
           </div>
-        </div>
-        <button onclick="closeIncidentModal()" class="w-8 h-8 rounded-xl hover:bg-[#F4F5F7] text-[#8C9199] flex items-center justify-center">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
+        </section>
 
-      <div class="space-y-3.5 text-xs">
-        <div>
-          <label class="block text-[#1C1D21] font-semibold mb-1">Incident Type</label>
-          <input id="modal-type" type="text" value="Acute Cardiac Arrest &amp; Trauma" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E8EAED] bg-[#F4F5F7] text-[#1C1D21] font-medium outline-none focus:border-black">
-        </div>
-        <div>
-          <label class="block text-[#1C1D21] font-semibold mb-1">Triage Severity Code</label>
-          <select id="modal-severity" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E8EAED] bg-[#F4F5F7] text-[#1C1D21] font-medium outline-none focus:border-black">
-            <option value="CRITICAL">CRITICAL (ALS Unit + Level 1 Trauma ICU)</option>
-            <option value="URGENT">URGENT (BLS Standard Unit)</option>
-            <option value="STANDARD">STANDARD (Rapid Paramedic Flyer)</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-[#1C1D21] font-semibold mb-1">Location within Hubballi–Dharwad</label>
-          <select id="modal-location" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E8EAED] bg-[#F4F5F7] text-[#1C1D21] font-medium outline-none focus:border-black">
-            <option value="15.4589,75.0078">Dharwad Jubilee Circle (Node 17561)</option>
-            <option value="15.3647,75.1240">Vidyanagar Hubballi (Node 28692)</option>
-            <option value="15.4050,75.0600">Navanagar Highway Corridor</option>
-            <option value="15.3700,75.1230">KIMS Hospital North Link</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="pt-3 border-t border-[#F0F1F3] flex justify-end gap-2.5">
-        <button onclick="closeIncidentModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-[#8C9199] hover:bg-[#F4F5F7] transition">
-          Cancel
-        </button>
-        <button onclick="dispatchEmergency()" class="px-5 py-2.5 bg-[#1C1D21] hover:bg-black text-[#B8F432] rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
-          <i data-lucide="navigation" class="w-3.5 h-3.5"></i> Calculate &amp; Dispatch
-        </button>
-      </div>
+      </main>
     </div>
   </div>
 
-  <!-- ========================================================================= -->
-  <!-- MODAL: POSTGIS TELEMETRY DIAGNOSTICS                                      -->
-  <!-- ========================================================================= -->
-  <div id="diagnostics-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-[#E8EAED] flex flex-col gap-4">
-      <div class="flex items-center justify-between pb-3 border-b border-[#F0F1F3]">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-xl bg-[#B8F432] text-black flex items-center justify-center font-bold">
-            ✦
-          </div>
-          <div>
-            <h3 class="text-sm font-bold text-[#1C1D21]">QGIS &amp; PostGIS Diagnostics</h3>
-            <p class="text-[11px] text-[#8C9199]">100% Offline &amp; Independent Database</p>
-          </div>
-        </div>
-        <button onclick="closeDiagnosticsModal()" class="w-8 h-8 rounded-xl hover:bg-[#F4F5F7] text-[#8C9199] flex items-center justify-center">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3 text-xs">
-        <div class="p-3.5 rounded-2xl bg-[#F4F5F7] border border-[#E8EAED]">
-          <p class="text-[10px] text-[#8C9199] uppercase font-mono">Road Network Nodes</p>
-          <p class="text-xl font-extrabold text-[#1C1D21] mt-1">29,385</p>
-          <p class="text-[10px] text-[#27C93F] font-semibold mt-0.5">SRID 4326 · WGS84</p>
-        </div>
-        <div class="p-3.5 rounded-2xl bg-[#F4F5F7] border border-[#E8EAED]">
-          <p class="text-[10px] text-[#8C9199] uppercase font-mono">Road Network Edges</p>
-          <p class="text-xl font-extrabold text-[#1C1D21] mt-1">40,394</p>
-          <p class="text-[10px] text-[#27C93F] font-semibold mt-0.5">3,780.5 total km</p>
-        </div>
-        <div class="p-3.5 rounded-2xl bg-[#F4F5F7] border border-[#E8EAED]">
-          <p class="text-[10px] text-[#8C9199] uppercase font-mono">Hospital Hubs</p>
-          <p class="text-xl font-extrabold text-[#1C1D21] mt-1">4</p>
-          <p class="text-[10px] text-[#8F77ED] font-semibold mt-0.5">KIMS, SDM, Civil, Tatwadarsha</p>
-        </div>
-        <div class="p-3.5 rounded-2xl bg-[#F4F5F7] border border-[#E8EAED]">
-          <p class="text-[10px] text-[#8C9199] uppercase font-mono">Ambulance Fleet</p>
-          <p class="text-xl font-extrabold text-[#1C1D21] mt-1">4</p>
-          <p class="text-[10px] text-[#27C93F] font-semibold mt-0.5">ALS, BLS, Rapid Flyer</p>
-        </div>
-      </div>
-
-      <div class="p-3 rounded-2xl bg-[#F4F5F7] border border-[#E8EAED] text-[11px] font-mono text-[#555962]">
-        <div class="flex justify-between py-1"><span>Operational Database:</span><span class="font-bold text-[#1C1D21]">PostgreSQL 17.5 + PostGIS 3.5</span></div>
-        <div class="flex justify-between py-1"><span>Target Instance:</span><span class="font-bold text-[#1C1D21]">localhost:5434 / iers_db</span></div>
-        <div class="flex justify-between py-1"><span>External Basemap API:</span><span class="font-bold text-[#27C93F]">NONE (Direct QGIS Desktop Render)</span></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========================================================================= -->
-  <!-- MODAL: UNIVERSAL SEARCH (⌘K)                                              -->
-  <!-- ========================================================================= -->
-  <div id="universal-search-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center pt-24 p-4 hidden">
-    <div class="bg-white w-full max-w-xl rounded-3xl p-5 shadow-2xl border border-[#E8EAED] flex flex-col gap-3">
-      <div class="flex items-center gap-3 px-3.5 py-2.5 bg-[#F4F5F7] rounded-2xl border border-[#E8EAED]">
-        <i data-lucide="search" class="w-4 h-4 text-[#8C9199]"></i>
-        <input id="search-input" oninput="handleSearch(this.value)" type="text" placeholder="Search ambulances, hospitals, corridors, nodes..." class="flex-1 bg-transparent text-xs font-medium outline-none text-[#1C1D21]">
-        <kbd class="text-[10px] font-mono bg-white px-2 py-0.5 rounded-lg border border-[#E8EAED] text-[#8C9199]">ESC</kbd>
-      </div>
-
-      <div id="search-results" class="max-h-72 overflow-y-auto space-y-2 pt-1 text-xs">
-        <div class="text-center py-6 text-xs text-[#8C9199]">Search metropolitan hospitals, units or routing intersections.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========================================================================= -->
-  <!-- JAVASCRIPT: QGIS RASTER MAP, REST API SYNC, ROUTE RENDERING               -->
-  <!-- ========================================================================= -->
+  <!-- ======================================================================= -->
+  <!-- JAVASCRIPT CONTROLLER                                                   -->
+  <!-- ======================================================================= -->
   <script>
     lucide.createIcons();
 
-    // Bounds of Hubballi–Dharwad metropolitan extent
-    const southWest = L.latLng(15.2093, 74.9135);
-    const northEast = L.latLng(15.6164, 75.3113);
-    const metroBounds = L.latLngBounds(southWest, northEast);
+    const METRO_BOUNDS = L.latLngBounds([15.2093, 74.9135], [15.6164, 75.3113]);
+    let authToken = localStorage.getItem('iers_token') || null;
+    let currentUser = JSON.parse(localStorage.getItem('iers_user') || 'null');
 
-    // Initialize Leaflet map with direct QGIS static image overlay (Zero external tile API key!)
-    const map = L.map('qgis-map', {
-      zoomControl: false,
-      maxBounds: metroBounds,
-      minZoom: 10,
-      maxZoom: 18
-    }).fitBounds(metroBounds);
+    let dashMap = null, fullMap = null, routeMap = null;
+    let mapLayers = {
+      dash: { hospitals: L.layerGroup(), ambulances: L.layerGroup(), incidents: L.layerGroup() },
+      full: { hospitals: L.layerGroup(), ambulances: L.layerGroup(), incidents: L.layerGroup(), roads: {} },
+      route: L.layerGroup(),
+    };
 
-    // Add Direct QGIS Canvas Image Overlay
-    const qgisOverlay = L.imageOverlay('/static/qgis_canvas.png', metroBounds, {
-      opacity: 1.0,
-      interactive: true
-    }).addTo(map);
+    let cachedHospitals = [], cachedAmbulances = [], cachedIncidents = [];
 
-    let activeRouteLayer = null;
-    let ambulanceMarkers = {};
-    let hospitalMarkers = {};
-
-    // Verified Hubballi to Dharwad intercity emergency route
-    const sampleIntercityRoute = [
-      [15.4589, 75.0078], // Dharwad Jubilee Circle
-      [15.4420, 75.0210],
-      [15.4200, 75.0450],
-      [15.3950, 75.0800], // Navanagar Corridor
-      [15.3696, 75.1231]  // KIMS Hospital Hubballi
-    ];
-
-    function drawSampleRoute() {
-      if (activeRouteLayer) map.removeLayer(activeRouteLayer);
-
-      activeRouteLayer = L.polyline(sampleIntercityRoute, {
-        color: '#1C1D21',
-        weight: 4.5,
-        opacity: 0.95,
-        dashArray: '8, 8',
-        lineCap: 'round'
-      }).addTo(map);
-
-      // Marker at Origin
-      L.circleMarker(sampleIntercityRoute[0], {
-        radius: 8,
-        fillColor: '#B8F432',
-        color: '#1C1D21',
-        weight: 3,
-        fillOpacity: 1
-      }).bindPopup("<b>Dharwad Jubilee Circle</b><br>Incident Origin").addTo(map);
-
-      // Marker at Destination
-      L.circleMarker(sampleIntercityRoute[sampleIntercityRoute.length - 1], {
-        radius: 9,
-        fillColor: '#FF3B30',
-        color: '#FFFFFF',
-        weight: 3,
-        fillOpacity: 1
-      }).bindPopup("<b>KIMS Medical Centre</b><br>Level 1 Trauma ICU").addTo(map);
+    function fillRole(email, pw) {
+      document.getElementById('login-email').value = email;
+      document.getElementById('login-password').value = pw;
     }
 
-    drawSampleRoute();
+    async function apiFetch(path, opts = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      const res = await fetch(path, { ...opts, headers });
+      if (res.status === 401) { logout(); throw new Error('Unauthorized'); }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Request failed');
+      return data;
+    }
 
-    // Fetch live ambulances & hospitals from backend
-    async function loadTelematics() {
+    async function handleLogin(e) {
+      e.preventDefault();
+      const errEl = document.getElementById('login-error');
+      errEl.classList.add('hidden');
       try {
-        const [ambRes, hospRes] = await Promise.all([
-          fetch('/api/v1/ambulances'),
-          fetch('/api/v1/hospitals')
-        ]);
-        const ambulances = await ambRes.json();
-        const hospitals = await hospRes.json();
-
-        // Render ambulances
-        ambulances.forEach(a => {
-          const isAvail = a.status === 'AVAILABLE';
-          const iconHtml = `
-            <div class="${isAvail ? '' : 'status-pulse-lime'}" style="width: 32px; height: 32px; border-radius: 50%; background: #1C1D21; border: 2.5px solid #FFFFFF; box-shadow: 0 4px 12px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; color: #B8F432;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
-            </div>
-          `;
-          const icon = L.divIcon({ html: iconHtml, className: 'amb-icon', iconSize: [32, 32], iconAnchor: [16, 16] });
-          if (ambulanceMarkers[a.id]) {
-            ambulanceMarkers[a.id].setLatLng([a.latitude, a.longitude]);
-          } else {
-            const m = L.marker([a.latitude, a.longitude], { icon }).addTo(map);
-            m.bindPopup(`<b>${a.call_sign}</b><br>${a.vehicle_type}<br>Status: ${a.status}`);
-            ambulanceMarkers[a.id] = m;
-          }
-        });
-
-        // Render hospitals
-        hospitals.forEach(h => {
-          const iconHtml = `
-            <div style="width: 32px; height: 32px; border-radius: 10px; background: #B3A1F8; border: 2px solid #FFFFFF; box-shadow: 0 4px 12px rgba(0,0,0,0.18); display: flex; align-items: center; justify-content: center; color: #1C1D21; font-weight: bold;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v12"/><path d="M6 12h12"/></svg>
-            </div>
-          `;
-          const icon = L.divIcon({ html: iconHtml, className: 'hosp-icon', iconSize: [32, 32], iconAnchor: [16, 16] });
-          if (!hospitalMarkers[h.id]) {
-            const m = L.marker([h.latitude, h.longitude], { icon }).addTo(map);
-            m.bindPopup(`<b>${h.name}</b><br>ICU Beds: ${h.icu_available} / ${h.total_beds}<br>Trauma Level ${h.trauma_level}`);
-            hospitalMarkers[h.id] = m;
-          }
-        });
-
-      } catch (err) {
-        console.warn('API sync notice:', err);
-      }
-    }
-
-    loadTelematics();
-    setInterval(loadTelematics, 10000);
-
-    function recenterQGISMap() {
-      map.flyToBounds(metroBounds, { duration: 1.2 });
-    }
-
-    function togglePriorityCorridor() {
-      const btn = document.getElementById('corridor-btn-status');
-      if (btn.innerText.includes('Active')) {
-        btn.innerText = 'Emergency Corridor';
-        if (activeRouteLayer) activeRouteLayer.setStyle({ color: '#1C1D21', dashArray: '8, 8' });
-      } else {
-        btn.innerText = 'Corridor Active (-60%)';
-        if (activeRouteLayer) activeRouteLayer.setStyle({ color: '#B8F432', dashArray: null });
-      }
-    }
-
-    // Modal controls
-    function openIncidentModal() { document.getElementById('incident-modal').classList.remove('hidden'); }
-    function closeIncidentModal() { document.getElementById('incident-modal').classList.add('hidden'); }
-    function openDiagnosticsModal() { document.getElementById('diagnostics-modal').classList.remove('hidden'); }
-    function closeDiagnosticsModal() { document.getElementById('diagnostics-modal').classList.add('hidden'); }
-    function openUniversalSearch() {
-      document.getElementById('universal-search-modal').classList.remove('hidden');
-      document.getElementById('search-input').focus();
-    }
-    function closeUniversalSearch() { document.getElementById('universal-search-modal').classList.add('hidden'); }
-
-    // Dispatch incident
-    async function dispatchEmergency() {
-      const type = document.getElementById('modal-type').value;
-      const severity = document.getElementById('modal-severity').value;
-      const [lat, lon] = document.getElementById('modal-location').value.split(',').map(Number);
-      closeIncidentModal();
-
-      try {
-        const res = await fetch('/api/v1/incidents/create', {
+        const res = await fetch('/api/v1/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            caller_name: 'Metro Dispatch Central',
-            incident_type: type,
-            severity: severity,
-            latitude: lat,
-            longitude: lon
-          })
+            email: document.getElementById('login-email').value,
+            password: document.getElementById('login-password').value,
+          }),
         });
         const data = await res.json();
-        if (data.status === 'DISPATCHED') {
-          document.getElementById('disp-origin').innerText = 'Emergency Scene';
-          document.getElementById('disp-dest').innerText = data.target_hospital.name;
-          document.getElementById('disp-eta').innerText = `${data.route_to_hospital.eta_minutes} mins (A* Optimal)`;
-
-          if (activeRouteLayer) map.removeLayer(activeRouteLayer);
-          activeRouteLayer = L.polyline(data.route_to_hospital.coordinates, {
-            color: '#B8F432',
-            weight: 5,
-            opacity: 1
-          }).addTo(map);
-          map.fitBounds(activeRouteLayer.getBounds(), { padding: [40, 40] });
-        }
+        if (!res.ok) throw new Error(data.detail || 'Login failed');
+        authToken = data.access_token;
+        currentUser = data.user;
+        localStorage.setItem('iers_token', authToken);
+        localStorage.setItem('iers_user', JSON.stringify(currentUser));
+        enterApp();
       } catch (err) {
-        console.warn('Dispatch request error:', err);
+        errEl.textContent = err.message;
+        errEl.classList.remove('hidden');
       }
     }
 
-    // Universal Search
-    function handleSearch(q) {
-      const container = document.getElementById('search-results');
-      if (!q.trim()) {
-        container.innerHTML = '<div class="text-center py-6 text-xs text-[#8C9199]">Search metropolitan hospitals, units or routing intersections.</div>';
-        return;
-      }
-      container.innerHTML = `
-        <div class="p-3 rounded-2xl hover:bg-[#F4F5F7] border border-[#E8EAED] cursor-pointer flex items-center justify-between">
-          <div>
-            <span class="text-[9px] font-mono uppercase text-[#B8F432] bg-black px-1.5 py-0.5 rounded font-bold">PostGIS</span>
-            <p class="text-xs font-bold text-[#1C1D21] mt-1">KIMS Medical Centre Hubballi</p>
-            <p class="text-[11px] text-[#8C9199]">12 ICU Beds Open · Level 1 Trauma Center</p>
-          </div>
-          <i data-lucide="chevron-right" class="w-4 h-4 text-[#8C9199]"></i>
-        </div>
-      `;
+    function logout() {
+      authToken = null;
+      currentUser = null;
+      localStorage.removeItem('iers_token');
+      localStorage.removeItem('iers_user');
+      document.getElementById('app-shell').classList.add('hidden');
+      document.getElementById('login-screen').classList.remove('hidden');
+    }
+
+    function enterApp() {
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('app-shell').classList.remove('hidden');
+
+      document.getElementById('header-user-name').textContent = currentUser.name;
+      document.getElementById('header-user-email').textContent = `${currentUser.email} · ${currentUser.role}`;
+      document.getElementById('sidebar-role-badge').textContent = currentUser.role;
+
+      // Apply role visibility rules
+      document.querySelectorAll('[data-roles]').forEach(el => {
+        const allowed = el.getAttribute('data-roles').split(',');
+        el.classList.toggle('hidden', !allowed.includes(currentUser.role));
+      });
+
+      initMaps();
+      refreshAll();
       lucide.createIcons();
     }
 
-    // Keyboard Shortcuts
-    window.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        openUniversalSearch();
-      }
-      if (e.key === 'Escape') {
-        closeUniversalSearch();
-        closeIncidentModal();
-        closeDiagnosticsModal();
-      }
-    });
+    function createQgisTileLayer() {
+      return L.tileLayer('/tiles/{z}/{x}/{y}.png', {
+        minZoom: 10,
+        maxZoom: 17,
+        attribution: 'IERS Native QGIS Project (PostGIS)',
+      });
+    }
 
-    function switchTab(tab) {
-      if (tab === 'mapview') {
-        recenterQGISMap();
+    function initMaps() {
+      if (!dashMap) {
+        dashMap = L.map('dash-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.405, 75.065], 12);
+        createQgisTileLayer().addTo(dashMap);
+        mapLayers.dash.hospitals.addTo(dashMap);
+        mapLayers.dash.ambulances.addTo(dashMap);
+        mapLayers.dash.incidents.addTo(dashMap);
       }
+      if (!fullMap) {
+        fullMap = L.map('full-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.405, 75.065], 12);
+        createQgisTileLayer().addTo(fullMap);
+        mapLayers.full.hospitals.addTo(fullMap);
+        mapLayers.full.ambulances.addTo(fullMap);
+        mapLayers.full.incidents.addTo(fullMap);
+        fullMap.on('click', (e) => {
+          document.getElementById('inc-lat').value = e.latlng.lat.toFixed(6);
+          document.getElementById('inc-lon').value = e.latlng.lng.toFixed(6);
+        });
+      }
+      if (!routeMap) {
+        routeMap = L.map('route-map', { maxBounds: METRO_BOUNDS.pad(0.1) }).setView([15.405, 75.065], 12);
+        createQgisTileLayer().addTo(routeMap);
+        mapLayers.route.addTo(routeMap);
+      }
+    }
+
+    function fitMetroBounds(m) {
+      if (m) m.fitBounds(METRO_BOUNDS, { padding: [20, 20] });
+    }
+
+    function toggleFullscreenMap() {
+      const el = document.getElementById('full-map-wrapper');
+      if (!document.fullscreenElement) el.requestFullscreen();
+      else document.exitFullscreen();
+    }
+
+    function switchView(view) {
+      document.querySelectorAll('.view-panel').forEach(p => p.classList.add('hidden'));
+      const target = document.getElementById(`view-${view}`);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      const btn = document.querySelector(`.nav-item[data-view="${view}"]`);
+      if (btn) btn.classList.add('active');
+
+      const titles = {
+        dashboard: 'Operations Dashboard',
+        map: 'Metropolitan GIS Map (Hubballi-Dharwad)',
+        emergencies: 'Emergency Management',
+        fleet: 'Ambulance Fleet Management',
+        hospitals: 'Hospitals & Trauma Centres',
+        routing: 'Constraint-Aware Route Optimisation',
+        traffic: 'Traffic Simulation (Simulated)',
+        analytics: 'Analytics & GIS Diagnostics',
+      };
+      document.getElementById('page-title').textContent = titles[view] || 'IERS';
+
+      setTimeout(() => {
+        if (view === 'dashboard' && dashMap) dashMap.invalidateSize();
+        if (view === 'map' && fullMap) fullMap.invalidateSize();
+        if (view === 'routing' && routeMap) routeMap.invalidateSize();
+      }, 80);
+
+      if (view === 'traffic') loadTrafficSummary();
+      if (view === 'analytics') loadAnalytics();
+    }
+
+    async function refreshAll() {
+      await Promise.all([loadDbInfo(), loadHospitals(), loadAmbulances(), loadIncidents(), loadTrafficSummary()]);
+      renderMapOverlays();
+      lucide.createIcons();
+    }
+
+    async function loadDbInfo() {
+      try {
+        const db = await apiFetch('/api/v1/system/database-info');
+        const c = db.verified_counts;
+        document.getElementById('sidebar-db-summary').textContent =
+          `${c.road_nodes.toLocaleString()} nodes · ${c.road_edges.toLocaleString()} edges · ${c.hospitals} hospitals`;
+        document.getElementById('kpi-road-km').textContent = `${c.total_road_km.toLocaleString()} km`;
+        document.getElementById('kpi-road-sub').textContent = `${c.road_edges.toLocaleString()} edges · ${c.road_nodes.toLocaleString()} nodes`;
+        document.getElementById('diag-content').innerHTML = `
+          <div class="flex justify-between py-1.5 border-b border-[#E6E8EC]"><span>RDBMS</span><span>${db.operational_rdbms}</span></div>
+          <div class="flex justify-between py-1.5 border-b border-[#E6E8EC]"><span>Database</span><span>${db.diagnostics.db_name} (${db.diagnostics.active_schema})</span></div>
+          <div class="flex justify-between py-1.5 border-b border-[#E6E8EC]"><span>One-Way Roads</span><span>${c.oneway_edges} (${c.contraflow_allowed_edges} amb contraflow)</span></div>
+          <div class="flex justify-between py-1.5 border-b border-[#E6E8EC]"><span>Closed / Corridors</span><span>${c.blocked_edges} closed · ${c.corridor_edges} corridors</span></div>
+          <div class="flex justify-between py-1.5"><span>SQLite In Use</span><span class="text-[#16A34A] font-bold">FALSE</span></div>
+        `;
+      } catch (e) { console.warn(e); }
+    }
+
+    async function loadHospitals() {
+      const city = document.getElementById('hosp-city-filter')?.value || '';
+      const trauma = document.getElementById('hosp-trauma-filter')?.checked ? 'true' : 'false';
+      const q = `?trauma_only=${trauma}` + (city ? `&city=${encodeURIComponent(city)}` : '');
+      cachedHospitals = await apiFetch(`/api/v1/hospitals${q}`);
+
+      const totalIcu = cachedHospitals.reduce((s, h) => s + (h.icu_available || 0), 0);
+      document.getElementById('kpi-icu-beds').textContent = totalIcu;
+      document.getElementById('kpi-hosp-sub').textContent = `${cachedHospitals.length} real OSM hospitals`;
+
+      const canEdit = ['HOSPITAL_STAFF', 'ADMIN'].includes(currentUser?.role);
+      document.getElementById('hospitals-grid').innerHTML = cachedHospitals.map(h => `
+        <div class="bg-white rounded-2xl border border-[#E6E8EC] p-4 flex flex-col justify-between gap-3">
+          <div>
+            <div class="flex items-start justify-between gap-2">
+              <div class="font-bold text-[#1C1D21]">${h.name}</div>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${h.trauma_level === 1 ? 'bg-[#B8F432] text-[#1C1D21]' : 'bg-[#F4F5F7] text-[#6E737D]'} font-bold">T${h.trauma_level}</span>
+            </div>
+            <div class="text-[11px] text-[#6E737D] mt-1">${h.city} · Node ${h.nearest_node_id} · ${h.latitude.toFixed(4)}, ${h.longitude.toFixed(4)}</div>
+          </div>
+          <div class="flex items-center justify-between pt-3 border-t border-[#E6E8EC]">
+            <div>
+              <span class="font-bold text-[#1C1D21]">${h.icu_available}</span> <span class="text-[#6E737D]">ICU / ${h.total_beds} beds</span>
+            </div>
+            ${canEdit ? `<button onclick="promptUpdateIcu('${h.id}', ${h.icu_available}, ${h.total_beds})" class="px-2.5 py-1 rounded-lg bg-[#1C1D21] text-[#B8F432] font-semibold">Edit ICU</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function promptUpdateIcu(id, curIcu, curBeds) {
+      const val = prompt('Update available ICU beds:', curIcu);
+      if (val === null) return;
+      try {
+        await apiFetch(`/api/v1/hospitals/${id}/capacity`, {
+          method: 'PATCH',
+          body: JSON.stringify({ icu_available: parseInt(val, 10), total_beds: curBeds }),
+        });
+        await loadHospitals();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function loadAmbulances() {
+      cachedAmbulances = await apiFetch('/api/v1/ambulances');
+      const avail = cachedAmbulances.filter(a => a.status === 'AVAILABLE').length;
+      document.getElementById('kpi-avail-amb').textContent = avail;
+      document.getElementById('kpi-amb-sub').textContent = `Total fleet: ${cachedAmbulances.length} units`;
+
+      document.getElementById('fleet-list').innerHTML = cachedAmbulances.map(a => `
+        <div class="py-3.5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="font-bold text-[#1C1D21]">${a.call_sign} <span class="font-mono text-[10px] text-[#6E737D]">${a.registration_number || ''}</span></div>
+            <div class="text-[11px] text-[#6E737D]">${a.vehicle_type} · Node ${a.current_node_id} · H:${a.height_meters}m W:${a.width_meters}m</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-mono px-2.5 py-1 rounded-full font-bold ${a.status === 'AVAILABLE' ? 'bg-[#B8F432] text-[#1C1D21]' : 'bg-[#B3A1F8]/30 text-[#1C1D21]'}">${a.status}</span>
+            <select onchange="changeAmbStatus('${a.id}', this.value)" class="px-2 py-1 rounded-lg border border-[#E6E8EC] bg-[#F4F5F7] text-[11px]">
+              <option value="">Set status...</option>
+              <option value="AVAILABLE">AVAILABLE</option>
+              <option value="ASSIGNED">ASSIGNED</option>
+              <option value="BUSY">BUSY</option>
+              <option value="OFFLINE">OFFLINE</option>
+            </select>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function changeAmbStatus(id, status) {
+      if (!status) return;
+      try {
+        await apiFetch(`/api/v1/ambulances/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+        await loadAmbulances();
+        renderMapOverlays();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function registerAmbulance(e) {
+      e.preventDefault();
+      try {
+        await apiFetch('/api/v1/ambulances', {
+          method: 'POST',
+          body: JSON.stringify({
+            call_sign: document.getElementById('amb-cs').value,
+            registration_number: document.getElementById('amb-reg').value,
+            vehicle_type: document.getElementById('amb-type').value,
+            latitude: parseFloat(document.getElementById('amb-lat').value),
+            longitude: parseFloat(document.getElementById('amb-lon').value),
+          }),
+        });
+        document.getElementById('amb-cs').value = '';
+        await loadAmbulances();
+        renderMapOverlays();
+      } catch (err) { alert(err.message); }
+    }
+
+    async function loadIncidents() {
+      cachedIncidents = await apiFetch('/api/v1/incidents');
+      const active = cachedIncidents.filter(i => !['COMPLETED', 'CANCELLED'].includes(i.status));
+      const p1 = active.filter(i => i.priority === 'P1').length;
+      document.getElementById('kpi-active-inc').textContent = active.length;
+      document.getElementById('kpi-p1-sub').textContent = `P1 Critical: ${p1}`;
+      document.getElementById('nav-inc-count').textContent = active.length;
+
+      const cardHtml = (i) => `
+        <div class="p-3.5 rounded-xl border border-[#E6E8EC] bg-[#FAFAFB] space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-[#1C1D21]">${i.incident_type}</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${i.priority === 'P1' ? 'bg-[#EF4444] text-white' : 'bg-[#1C1D21] text-[#B8F432]'}">${i.priority}</span>
+          </div>
+          <div class="text-[11px] text-[#6E737D]">${i.ambulance_callsign || 'Unassigned'} → ${i.hospital_name || 'Pending Hospital'}</div>
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[10px] font-mono text-[#6E737D]">${i.status}${i.needs_review ? ' · NEEDS REVIEW' : ''}</span>
+            <div class="flex gap-1.5">
+              ${!['COMPLETED','CANCELLED'].includes(i.status) ? `<button onclick="setIncidentStatus('${i.id}','COMPLETED')" class="px-2 py-0.5 rounded bg-[#1C1D21] text-[#B8F432] text-[10px] font-semibold">Complete</button>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('dash-queue').innerHTML = active.length
+        ? active.slice(0, 8).map(cardHtml).join('')
+        : '<div class="text-[#6E737D] text-center py-8">No active emergencies.</div>';
+
+      document.getElementById('emergencies-table').innerHTML = cachedIncidents.length
+        ? cachedIncidents.map(i => `<div class="py-3">${cardHtml(i)}</div>`).join('')
+        : '<div class="text-[#6E737D] text-center py-8">No incidents recorded yet.</div>';
+    }
+
+    async function setIncidentStatus(id, status) {
+      try {
+        await apiFetch(`/api/v1/incidents/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, approve_review: true }) });
+        await refreshAll();
+      } catch (e) { alert(e.message); }
+    }
+
+    function acquireBrowserGPS() {
+      if (!navigator.geolocation) return alert('Geolocation not supported');
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          document.getElementById('inc-lat').value = pos.coords.latitude.toFixed(6);
+          document.getElementById('inc-lon').value = pos.coords.longitude.toFixed(6);
+        },
+        err => alert('GPS unavailable: ' + err.message)
+      );
+    }
+
+    function setPresetPin(lat, lon) {
+      document.getElementById('inc-lat').value = lat.toFixed(6);
+      document.getElementById('inc-lon').value = lon.toFixed(6);
+    }
+
+    async function submitEmergency(e) {
+      e.preventDefault();
+      const box = document.getElementById('inc-submit-result');
+      box.classList.remove('hidden');
+      box.textContent = 'Calculating optimal pgRouting path & allocating unit...';
+      try {
+        const res = await apiFetch('/api/v1/incidents/create', {
+          method: 'POST',
+          body: JSON.stringify({
+            incident_type: document.getElementById('inc-type').value,
+            priority: document.getElementById('inc-priority').value || null,
+            people_affected: parseInt(document.getElementById('inc-people').value, 10),
+            latitude: parseFloat(document.getElementById('inc-lat').value),
+            longitude: parseFloat(document.getElementById('inc-lon').value),
+            description: document.getElementById('inc-desc').value,
+          }),
+        });
+        const eta = res.route_to_hospital ? `${res.route_to_hospital.eta_minutes} min (${res.route_to_hospital.total_distance_km} km)` : 'Queued';
+        box.innerHTML = `<strong>${res.status}</strong> · ${res.incident_id} (${res.priority}) · Route to hospital: <strong>${eta}</strong>`;
+        await refreshAll();
+      } catch (err) {
+        box.textContent = 'Error: ' + err.message;
+      }
+    }
+
+    function renderMapOverlays() {
+      ['dash', 'full'].forEach(k => {
+        mapLayers[k].hospitals.clearLayers();
+        mapLayers[k].ambulances.clearLayers();
+        mapLayers[k].incidents.clearLayers();
+
+        cachedHospitals.forEach(h => {
+          L.circleMarker([h.latitude, h.longitude], {
+            radius: 6, fillColor: '#B3A1F8', color: '#1C1D21', weight: 1.5, fillOpacity: 0.95
+          }).bindPopup(`<b>${h.name}</b><br>${h.city} · T${h.trauma_level}<br>ICU: ${h.icu_available}/${h.total_beds}`).addTo(mapLayers[k].hospitals);
+        });
+
+        cachedAmbulances.forEach(a => {
+          L.circleMarker([a.latitude, a.longitude], {
+            radius: 7, fillColor: '#B8F432', color: '#1C1D21', weight: 2, fillOpacity: 1
+          }).bindPopup(`<b>${a.call_sign}</b><br>${a.vehicle_type} · ${a.status}`).addTo(mapLayers[k].ambulances);
+        });
+
+        cachedIncidents.filter(i => !['COMPLETED', 'CANCELLED'].includes(i.status)).forEach(i => {
+          L.circleMarker([i.latitude, i.longitude], {
+            radius: 8, fillColor: '#EF4444', color: '#FFFFFF', weight: 2, fillOpacity: 1
+          }).bindPopup(`<b>${i.incident_type} (${i.priority})</b><br>Status: ${i.status}`).addTo(mapLayers[k].incidents);
+        });
+      });
+    }
+
+    function toggleOverlay(name, checked) {
+      if (!fullMap) return;
+      if (checked) mapLayers.full[name].addTo(fullMap);
+      else fullMap.removeLayer(mapLayers.full[name]);
+    }
+
+    async function toggleRoadOverlay(filterType, checked) {
+      if (!fullMap) return;
+      if (mapLayers.full.roads[filterType]) {
+        fullMap.removeLayer(mapLayers.full.roads[filterType]);
+        delete mapLayers.full.roads[filterType];
+      }
+      if (!checked) return;
+      const fc = await apiFetch(`/api/v1/gis/roads-overlay?filter_type=${filterType}`);
+      const colorMap = { congested: '#EF4444', corridors: '#16A34A', blocked: '#1C1D21', oneway: '#8B5CF6' };
+      const layer = L.geoJSON(fc, {
+        style: { color: colorMap[filterType] || '#1C1D21', weight: filterType === 'corridors' ? 4 : 3, opacity: 0.85 },
+        onEachFeature: (f, l) => l.bindPopup(`<b>${f.properties.name}</b><br>${f.properties.highway} · ${f.properties.traffic_multiplier}x`),
+      }).addTo(fullMap);
+      mapLayers.full.roads[filterType] = layer;
+    }
+
+    function applyRoutePreset() {}
+
+    async function runRouteComparison() {
+      const box = document.getElementById('rt-results');
+      box.innerHTML = '<div class="text-[#6E737D] text-center py-6">Running pgRouting on 40,394 edges...</div>';
+      const [slat, slon, elat, elon] = document.getElementById('rt-preset').value.split(',').map(Number);
+      const algo = document.getElementById('rt-algo').value;
+      try {
+        const res = await apiFetch('/api/v1/routing/compare', {
+          method: 'POST',
+          body: JSON.stringify({ start_lat: slat, start_lon: slon, end_lat: elat, end_lon: elon, algorithm: algo }),
+        });
+        mapLayers.route.clearLayers();
+        if (res.normal_vehicle) {
+          L.polyline(res.normal_vehicle.coordinates, { color: '#6E737D', weight: 4, dashArray: '6,6', opacity: 0.9 }).addTo(mapLayers.route);
+        }
+        if (res.ambulance) {
+          const ambLine = L.polyline(res.ambulance.coordinates, { color: '#1C1D21', weight: 5, opacity: 0.95 }).addTo(mapLayers.route);
+          routeMap.fitBounds(ambLine.getBounds(), { padding: [30, 30] });
+        }
+        box.innerHTML = `
+          <div class="p-3.5 rounded-xl bg-[#F4F5F7] border border-[#E6E8EC]">
+            <div class="text-[10px] font-mono text-[#6E737D] uppercase">Ordinary Vehicle (Strict One-Way)</div>
+            <div class="text-base font-bold mt-1">${res.normal_vehicle ? res.normal_vehicle.total_distance_km + ' km · ' + res.normal_vehicle.eta_minutes + ' min' : 'No route'}</div>
+            <div class="text-[11px] text-[#6E737D]">Edges: ${res.normal_vehicle?.edge_count || 0} · Contraflow: 0</div>
+          </div>
+          <div class="p-3.5 rounded-xl bg-[#1C1D21] text-white">
+            <div class="text-[10px] font-mono text-[#B8F432] uppercase">Ambulance (Emergency Exception)</div>
+            <div class="text-base font-bold mt-1 text-[#B8F432]">${res.ambulance ? res.ambulance.total_distance_km + ' km · ' + res.ambulance.eta_minutes + ' min' : 'No route'}</div>
+            <div class="text-[11px] text-white/70">Edges: ${res.ambulance?.edge_count || 0} · Contraflow used: ${res.ambulance?.contraflow_edges_used || 0}</div>
+          </div>
+        `;
+      } catch (e) {
+        box.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    async function loadTrafficSummary() {
+      try {
+        const t = await apiFetch('/api/v1/traffic/summary');
+        const banner = document.getElementById('sim-banner');
+        banner.classList.toggle('hidden', t.mode === 'FREE_FLOW' || t.mode === 'NORMAL');
+        banner.textContent = `SIMULATED TRAFFIC: ${t.mode} (${t.multiplier}x)`;
+        const s = t.stats;
+        document.getElementById('traffic-stats-grid').innerHTML = `
+          <div class="bg-white rounded-2xl border border-[#E6E8EC] p-4"><div class="text-[#6E737D]">Free-Flow Roads</div><div class="text-2xl font-bold mt-1">${s.free_flow_roads.toLocaleString()}</div></div>
+          <div class="bg-white rounded-2xl border border-[#E6E8EC] p-4"><div class="text-[#6E737D]">Moderate Roads</div><div class="text-2xl font-bold mt-1">${s.moderate_roads.toLocaleString()}</div></div>
+          <div class="bg-white rounded-2xl border border-[#E6E8EC] p-4"><div class="text-[#6E737D]">Congested Roads</div><div class="text-2xl font-bold mt-1 text-[#EF4444]">${s.congested_roads.toLocaleString()}</div></div>
+          <div class="bg-white rounded-2xl border border-[#E6E8EC] p-4"><div class="text-[#6E737D]">Closed Roads</div><div class="text-2xl font-bold mt-1">${s.closed_roads}</div></div>
+          <div class="bg-white rounded-2xl border border-[#E6E8EC] p-4"><div class="text-[#6E737D]">Green Corridors</div><div class="text-2xl font-bold mt-1 text-[#16A34A]">${s.emergency_corridors.toLocaleString()}</div></div>
+        `;
+      } catch (e) { console.warn(e); }
+    }
+
+    async function setTrafficLevel(level) {
+      try {
+        await apiFetch('/api/v1/traffic/simulate', { method: 'POST', body: JSON.stringify({ level }) });
+        await loadTrafficSummary();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function toggleGlobalCorridor(active) {
+      try {
+        await apiFetch('/api/v1/traffic/toggle-emergency-corridor', { method: 'POST', body: JSON.stringify({ active }) });
+        await loadTrafficSummary();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function resetTrafficSim() {
+      try {
+        await apiFetch('/api/v1/traffic/reset', { method: 'POST' });
+        await loadTrafficSummary();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function loadAnalytics() {
+      const [an, hist] = await Promise.all([apiFetch('/api/v1/analytics/summary'), apiFetch('/api/v1/routing/history')]);
+      document.getElementById('road-classes-content').innerHTML = an.road_classes.map(r => `
+        <div class="flex items-center justify-between py-1.5 border-b border-[#E6E8EC]">
+          <span class="font-medium capitalize">${r.highway}</span>
+          <span class="font-mono text-[#6E737D]">${r.edges.toLocaleString()} edges · ${r.km} km</span>
+        </div>
+      `).join('');
+
+      document.getElementById('route-history-table').innerHTML = hist.length ? `
+        <table class="w-full text-left border-collapse">
+          <thead><tr class="border-b border-[#E6E8EC] text-[#6E737D]">
+            <th class="py-2">Route</th><th>Algo</th><th>Mode</th><th>Distance</th><th>ETA</th><th>Contraflow</th>
+          </tr></thead>
+          <tbody>
+            ${hist.map(r => `
+              <tr class="border-b border-[#E6E8EC]/60 font-mono text-[11px]">
+                <td class="py-2">#${r.route_id} (${r.incident_id || 'Ad-hoc'})</td>
+                <td>${r.algorithm}</td><td>${r.vehicle_mode}</td>
+                <td>${(r.distance_m/1000).toFixed(2)} km</td><td>${(r.estimated_time_s/60).toFixed(1)} min</td><td>${r.contraflow_edges}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<div class="text-[#6E737D] py-4">No persisted routes yet. Dispatch an incident to record route history.</div>';
+    }
+
+    if (authToken && currentUser) {
+      enterApp();
     }
   </script>
 </body>
