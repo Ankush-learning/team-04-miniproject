@@ -22,8 +22,10 @@ from app.core.auth import (
     require_roles,
 )
 from app.services.pgrouting_service import find_nearest_road_node, compute_pgrouting_path
+from app.routers.portals import router as portals_router
 
-app = FastAPI(title=settings.APP_NAME, version="2.0.0")
+app = FastAPI(title=settings.APP_NAME, version="3.0.0")
+app.include_router(portals_router)
 
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
 os.makedirs(static_dir, exist_ok=True)
@@ -155,7 +157,7 @@ async def get_me(user: Dict[str, Any] = Depends(get_current_user)):
 @app.get("/api/v1/users")
 async def list_users(
     db: AsyncSession = Depends(get_db),
-    _: Dict[str, Any] = Depends(require_roles("ADMIN")),
+    _: Dict[str, Any] = Depends(require_roles("DISPATCHER")),
 ):
     res = await db.execute(
         text("SELECT user_id, name, email, role, assigned_entity_id, is_active, created_at FROM iers.users ORDER BY role, name")
@@ -403,7 +405,7 @@ async def get_ambulances(db: AsyncSession = Depends(get_db)):
 async def register_ambulance(
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    _: Dict[str, Any] = Depends(require_roles("ADMIN", "DISPATCHER")),
+    _: Dict[str, Any] = Depends(require_roles("DISPATCHER")),
 ):
     call_sign = (payload.get("call_sign") or "").strip()
     if not call_sign:
@@ -451,14 +453,14 @@ async def update_ambulance_status(
     ambulance_id: str,
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    user: Dict[str, Any] = Depends(require_roles("ADMIN", "DISPATCHER", "AMBULANCE_CREW")),
+    user: Dict[str, Any] = Depends(require_roles("DISPATCHER", "AMBULANCE_OPERATOR")),
 ):
     new_status = (payload.get("status") or "").upper()
-    if new_status not in ("AVAILABLE", "ASSIGNED", "BUSY", "OFFLINE", "DISPATCHED"):
+    if new_status not in ("AVAILABLE", "ASSIGNED", "ACCEPTED", "EN_ROUTE", "ARRIVED_AT_SCENE", "PATIENT_PICKED_UP", "EN_ROUTE_TO_HOSPITAL", "ARRIVED_AT_HOSPITAL", "COMPLETED", "UNAVAILABLE", "BUSY", "OFFLINE"):
         raise HTTPException(status_code=400, detail="Invalid ambulance status")
 
-    if user["role"] == "AMBULANCE_CREW" and user.get("assigned_entity_id") and user["assigned_entity_id"] != ambulance_id:
-        raise HTTPException(status_code=403, detail="Crew can only update their assigned ambulance")
+    if user["role"] == "AMBULANCE_OPERATOR" and user.get("assigned_entity_id") and user["assigned_entity_id"] != ambulance_id:
+        raise HTTPException(status_code=403, detail="Operator can only update their assigned ambulance")
 
     res = await db.execute(
         text("""
@@ -727,7 +729,7 @@ async def update_incident_status(
     incident_id: str,
     payload: dict,
     db: AsyncSession = Depends(get_db),
-    user: Dict[str, Any] = Depends(require_roles("DISPATCHER", "AMBULANCE_CREW", "ADMIN")),
+    user: Dict[str, Any] = Depends(require_roles("DISPATCHER", "AMBULANCE_OPERATOR")),
 ):
     new_status = (payload.get("status") or "").upper()
     remarks = payload.get("remarks") or ""
