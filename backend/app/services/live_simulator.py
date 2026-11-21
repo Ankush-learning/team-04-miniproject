@@ -383,7 +383,7 @@ async def _spawn_one_emergency() -> Optional[str]:
                     status, caller_name, caller_phone, needs_review, location_source
                 ) VALUES (
                     :code, CAST(:uid AS uuid), :em,
-                    ST_SetSRID(ST_MakePoint(:lon, :lat), 4326),
+                    ST_SetSRID(ST_MakePoint(CAST(:lon AS double precision), CAST(:lat AS double precision)), 4326),
                     :lat, :lon, :nid, :title,
                     :prio, :pscore, 1, :desc,
                     'RECEIVED', :cname, '112', FALSE, 'SIMULATED_CITIZEN'
@@ -393,7 +393,7 @@ async def _spawn_one_emergency() -> Optional[str]:
             {
                 "code": code, "uid": citizen["user_id"], "em": citizen["email"],
                 "lon": float(node["lon"]), "lat": float(node["lat"]),
-                "nid": int(node["node_id"]), "title": title,
+                "nid": str(node["node_id"]), "title": title,
                 "prio": priority, "pscore": prio_score, "desc": desc,
                 "cname": citizen["full_name"],
             },
