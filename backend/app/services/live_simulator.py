@@ -94,7 +94,7 @@ async def _drive_leg(eid: str, aid: str, coords: List[List[float]], total_dist_m
     for idx, pt in enumerate(sampled):
         if not _sim_running:
             return
-        lon, lat = float(pt[0]), float(pt[1])
+        lat, lon = float(pt[0]), float(pt[1])
         frac = (idx + 1) / total_pts
         rem_m = max(0.0, total_dist_m * (1.0 - frac))
         eta_s = max(0, int(rem_m / 12.0))
@@ -103,7 +103,7 @@ async def _drive_leg(eid: str, aid: str, coords: List[List[float]], total_dist_m
             await db.execute(
                 text("""
                     UPDATE public.ambulances
-                    SET current_location = ST_SetSRID(ST_MakePoint(:lon, :lat), 4326),
+                    SET current_location = ST_SetSRID(ST_MakePoint(CAST(:lon AS double precision), CAST(:lat AS double precision)), 4326),
                         last_location_update = NOW()
                     WHERE ambulance_id = CAST(:aid AS uuid)
                 """),
@@ -111,8 +111,8 @@ async def _drive_leg(eid: str, aid: str, coords: List[List[float]], total_dist_m
             )
             await db.execute(
                 text("""
-                    INSERT INTO public.ambulance_location_history (ambulance_id, location, speed_kmh, recorded_at)
-                    VALUES (CAST(:aid AS uuid), ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), 48.0, NOW())
+                    INSERT INTO public.ambulance_location_history (ambulance_id, latitude, longitude, is_simulated)
+                    VALUES (CAST(:aid AS uuid), :lat, :lon, TRUE)
                 """),
                 {"aid": aid, "lon": lon, "lat": lat},
             )

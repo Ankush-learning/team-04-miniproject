@@ -1732,7 +1732,7 @@
 
     function drawLiveSimRoute(incId, coords, leg) {
       if (!coords || !coords.length) return;
-      const latlngs = coords.map(c => [c[1], c[0]]);
+      const latlngs = coords.map(c => c[0] > 30 ? [c[1], c[0]] : [c[0], c[1]]);
       const color = leg === 'LEG_2' ? '#B3A1F8' : '#1C1D21';
       [dashMap, fullMap].forEach((m, idx) => {
         if (!m) return;
