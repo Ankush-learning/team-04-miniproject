@@ -17,14 +17,27 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <style>
-    * { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; }
     .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* IERS Typography Scale */
+    body { font-size: 16px; font-weight: 400; line-height: 1.6; }
+    h1 { font-size: 56px; font-weight: 700; line-height: 1.1; letter-spacing: -0.025em; }
+    h2 { font-size: 36px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+    h3 { font-size: 26px; font-weight: 600; line-height: 1.3; letter-spacing: -0.015em; }
+    h4 { font-size: 20px; font-weight: 600; line-height: 1.4; letter-spacing: -0.01em; }
+    p, li, td, th, input, select, textarea { font-size: 16px; font-weight: 400; line-height: 1.6; }
+    small, .text-small { font-size: 14px; font-weight: 400; line-height: 1.5; }
+    .text-caption, label { font-size: 12px; font-weight: 500; line-height: 1.4; }
+    button { font-size: 15px; font-weight: 600; line-height: 1.2; }
+    .nav-item { font-size: 14px; font-weight: 600; line-height: 1.2; }
+
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-thumb { background: #D5D8DF; border-radius: 9999px; }
     .view-panel { animation: fadeSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes fadeSlide { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     .nav-item.active { background: #FFFFFF; color: #1C1D21; font-weight: 600; }
-    .leaflet-container { background: #EEF0F4; }
+    .leaflet-container { background: #F8F9FA; }
     .custom-marker { background: transparent; border: none; }
   </style>
 </head>
@@ -46,7 +59,7 @@
               <div class="text-[11px] text-white/50 font-mono">HUBBALLI-DHARWAD METRO</div>
             </div>
           </div>
-          <h1 class="text-2xl font-bold tracking-tight mt-8 leading-snug">
+          <h1 class="mt-8">
             Multi-Stakeholder Emergency Response Platform
           </h1>
           <p class="text-xs text-white/60 mt-3 leading-relaxed">
@@ -61,37 +74,37 @@
       </div>
 
       <div class="md:col-span-7 p-8">
-        <h2 class="text-xl font-bold tracking-tight">Sign In to Portal</h2>
-        <p class="text-xs text-[#6E737D] mt-1">Select a stakeholder role preset or enter credentials.</p>
+        <h2 class="">Sign In to Portal</h2>
+        <p class="text-small text-[#6E737D] mt-1">Select a stakeholder role preset or enter credentials.</p>
 
         <div class="grid grid-cols-2 gap-2.5 mt-5">
           <button type="button" onclick="fillRole('citizen@iers.gov.in','citizen123')" class="text-left p-3 rounded-2xl border border-[#E6E8EC] hover:border-[#1C1D21] transition">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold">Citizen</span>
-              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#F4F5F7] font-semibold">PUBLIC</span>
+              <span class="text-caption font-mono px-1.5 py-0.5 rounded bg-[#F4F5F7] font-semibold">PUBLIC</span>
             </div>
-            <p class="text-[11px] text-[#6E737D] mt-1">Report &amp; track your emergency</p>
+            <p class="text-caption text-[#6E737D] mt-1">Report &amp; track your emergency</p>
           </button>
           <button type="button" onclick="fillRole('dispatcher@iers.gov.in','dispatch123')" class="text-left p-3 rounded-2xl border border-[#E6E8EC] hover:border-[#1C1D21] transition">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold">Dispatcher</span>
-              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#B8F432] font-semibold">CONTROL</span>
+              <span class="text-caption font-mono px-1.5 py-0.5 rounded bg-[#B8F432] font-semibold">CONTROL</span>
             </div>
-            <p class="text-[11px] text-[#6E737D] mt-1">Full metropolitan operations &amp; GIS</p>
+            <p class="text-caption text-[#6E737D] mt-1">Full metropolitan operations &amp; GIS</p>
           </button>
           <button type="button" onclick="fillRole('hospital1@iers.gov.in','hospital123')" class="text-left p-3 rounded-2xl border border-[#E6E8EC] hover:border-[#1C1D21] transition">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold">Hospital Staff</span>
-              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#B3A1F8]/30 font-semibold">KIMS</span>
+              <span class="text-caption font-mono px-1.5 py-0.5 rounded bg-[#B3A1F8]/30 font-semibold">KIMS</span>
             </div>
-            <p class="text-[11px] text-[#6E737D] mt-1">Own beds, incoming units &amp; CSV import</p>
+            <p class="text-caption text-[#6E737D] mt-1">Own beds, incoming units &amp; CSV import</p>
           </button>
           <button type="button" onclick="fillRole('operator1@iers.gov.in','operator123')" class="text-left p-3 rounded-2xl border border-[#E6E8EC] hover:border-[#1C1D21] transition">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold">Ambulance Operator</span>
-              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#1C1D21] text-[#B8F432] font-semibold">ALS-01</span>
+              <span class="text-caption font-mono px-1.5 py-0.5 rounded bg-[#1C1D21] text-[#B8F432] font-semibold">ALS-01</span>
             </div>
-            <p class="text-[11px] text-[#6E737D] mt-1">Assignments, 10-state workflow &amp; GPS</p>
+            <p class="text-caption text-[#6E737D] mt-1">Assignments, 10-state workflow &amp; GPS</p>
           </button>
         </div>
 
@@ -127,7 +140,7 @@
               <i data-lucide="activity" class="w-4 h-4"></i>
             </div>
             <div>
-              <div class="text-base font-bold tracking-tight leading-none">IERS</div>
+              <div class=" tracking-tight leading-none">IERS</div>
               <div id="portal-subtitle" class="text-[10px] text-white/50 font-mono mt-0.5">PORTAL</div>
             </div>
           </div>
@@ -139,7 +152,7 @@
       <div class="space-y-3 pt-4 border-t border-white/10">
         <div class="px-2">
           <div id="sidebar-user-name" class="text-xs font-semibold text-white truncate">—</div>
-          <div id="sidebar-user-role" class="text-[10px] font-mono text-[#B8F432] mt-0.5">—</div>
+          <div id="sidebar-user-role" class="text-caption font-mono text-[#B8F432] mt-0.5">—</div>
         </div>
         <button onclick="logout()" class="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-white/70 hover:text-white transition">
           <i data-lucide="log-out" class="w-3.5 h-3.5"></i><span>Switch Portal / Sign Out</span>
@@ -149,12 +162,12 @@
 
     <!-- RIGHT WORKSPACE -->
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="h-16 bg-white border-b border-[#E6E8EC] px-6 flex items-center justify-between sticky top-0 z-20">
+      <header class="h-20 bg-white border-b border-[#E6E8EC] px-6 flex items-center justify-between sticky top-0 z-20">
         <div class="flex items-center gap-3">
-          <h2 id="page-title" class="text-base font-bold tracking-tight">IERS</h2>
-          <span id="sim-banner" class="hidden text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#B3A1F8]/25 font-semibold">SIMULATED TRAFFIC</span>
+          <h2 id="page-title" class="!text-[26px] !font-semibold !leading-[1.3] tracking-tight">IERS</h2>
+          <span id="sim-banner" class="hidden text-caption font-mono px-2.5 py-1 rounded-full bg-[#B3A1F8]/25 font-semibold">SIMULATED TRAFFIC</span>
         </div>
-        <div id="header-actions" class="flex items-center gap-2 text-xs"></div>
+        <div id="header-actions" class="flex items-center gap-2"></div>
       </header>
 
       <main class="flex-1 p-6 space-y-6">
@@ -164,8 +177,8 @@
         <!-- =============================================================== -->
         <section id="view-cit-report" class="view-panel hidden max-w-2xl mx-auto bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-4">
           <div>
-            <h3 class="text-base font-bold">Report an Emergency</h3>
-            <p class="text-xs text-[#6E737D]">Detect your GPS location or select a location in Hubballi-Dharwad. Nearest ambulance will be dispatched immediately.</p>
+            <h3 class="">Report an Emergency</h3>
+            <p class="text-small text-[#6E737D]">Detect your GPS location or select a location in Hubballi-Dharwad. Nearest ambulance will be dispatched immediately.</p>
           </div>
           <form onsubmit="citizenSubmitEmergency(event)" class="space-y-3.5 text-xs">
             <div>
@@ -237,14 +250,14 @@
 
         <section id="view-cit-reports" class="view-panel hidden bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-3 text-xs">
           <div class="flex items-center justify-between pb-3 border-b border-[#E6E8EC]">
-            <h3 class="text-sm font-bold">My Submitted Emergency Reports</h3>
+            <h3 class="">My Submitted Emergency Reports</h3>
             <button onclick="loadCitizenReports()" class="text-[#6E737D] hover:text-[#1C1D21]">Refresh</button>
           </div>
           <div id="cit-reports-list" class="divide-y divide-[#E6E8EC]"></div>
         </section>
 
         <section id="view-cit-profile" class="view-panel hidden max-w-lg bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-2 text-xs">
-          <h3 class="text-sm font-bold">Citizen Account Profile</h3>
+          <h3 class="">Citizen Account Profile</h3>
           <div id="cit-profile-body" class="space-y-1.5 text-[#6E737D]"></div>
         </section>
 
@@ -254,19 +267,19 @@
         <section id="view-disp-dashboard" class="view-panel hidden space-y-6">
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="bg-white rounded-2xl p-5 border border-[#E6E8EC]">
-              <div class="text-xs text-[#6E737D]">Active Emergencies</div>
+              <div class="text-small text-[#6E737D]">Active Emergencies</div>
               <div id="kpi-active-inc" class="text-3xl font-bold mt-1">—</div>
               <div id="kpi-p1-sub" class="text-[11px] text-[#EF4444] font-semibold mt-1">P1 Critical: —</div>
             </div>
             <div class="bg-white rounded-2xl p-5 border border-[#E6E8EC]">
-              <div class="text-xs text-[#6E737D]">Available Ambulances</div>
+              <div class="text-small text-[#6E737D]">Available Ambulances</div>
               <div id="kpi-avail-amb" class="text-3xl font-bold mt-1">—</div>
-              <div id="kpi-amb-sub" class="text-[11px] text-[#6E737D] mt-1">Total fleet: —</div>
+              <div id="kpi-amb-sub" class="text-caption text-[#6E737D] mt-1">Total fleet: —</div>
             </div>
             <div class="bg-white rounded-2xl p-5 border border-[#E6E8EC]">
-              <div class="text-xs text-[#6E737D]">Open ICU Beds (22 Hospitals)</div>
+              <div class="text-small text-[#6E737D]">Open ICU Beds (22 Hospitals)</div>
               <div id="kpi-icu-beds" class="text-3xl font-bold mt-1">—</div>
-              <div class="text-[11px] text-[#6E737D] mt-1">Real OSM coords · Prototype beds</div>
+              <div class="text-caption text-[#6E737D] mt-1">Real OSM coords · Prototype beds</div>
             </div>
             <div class="bg-[#1C1D21] text-white rounded-2xl p-5">
               <div class="text-xs text-white/60">Hubballi-Dharwad Network</div>
@@ -326,7 +339,7 @@
         <!-- DISPATCHER EMERGENCY MANAGEMENT -->
         <section id="view-disp-emergencies" class="view-panel hidden bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-4 text-xs">
           <div class="flex items-center justify-between pb-3 border-b border-[#E6E8EC]">
-            <h3 class="text-sm font-bold">All Metropolitan Emergencies &amp; Priority Queue</h3>
+            <h3 class="">All Metropolitan Emergencies &amp; Priority Queue</h3>
             <button onclick="loadAllDispatcherData()" class="px-3 py-1.5 rounded-lg bg-[#F4F5F7] font-semibold">Refresh</button>
           </div>
           <div id="disp-emergencies-list" class="divide-y divide-[#E6E8EC]"></div>
@@ -336,7 +349,7 @@
         <section id="view-disp-fleet" class="view-panel hidden space-y-4">
           <div class="bg-white rounded-2xl border border-[#E6E8EC] p-6 text-xs">
             <div class="flex items-center justify-between pb-3 border-b border-[#E6E8EC]">
-              <h3 class="text-sm font-bold">Metropolitan Ambulance Fleet (Click "3D Inspect" for Interactive Three.js Model)</h3>
+              <h3 class="">Metropolitan Ambulance Fleet (Click "3D Inspect" for Interactive Three.js Model)</h3>
               <button onclick="loadAllDispatcherData()" class="text-[#6E737D]">Refresh</button>
             </div>
             <div id="disp-fleet-list" class="divide-y divide-[#E6E8EC] mt-2"></div>
@@ -351,7 +364,7 @@
         <!-- DISPATCHER ROUTE OPTIMISATION -->
         <section id="view-disp-routing" class="view-panel hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div class="lg:col-span-4 bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-4 text-xs">
-            <h3 class="text-sm font-bold">Route Optimisation (Dijkstra &amp; A*)</h3>
+            <h3 class="">Route Optimisation (Dijkstra &amp; A*)</h3>
             <select id="rt-algo" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]">
               <option value="DIJKSTRA">pgRouting Dijkstra (pgr_dijkstra)</option>
               <option value="ASTAR">pgRouting A* (pgr_astar)</option>
@@ -378,8 +391,8 @@
         <section id="view-disp-traffic" class="view-panel hidden space-y-6">
           <div class="bg-[#1C1D21] text-white rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div class="text-[10px] font-mono text-[#B8F432]">SIMULATED TRAFFIC MODEL — NOT LIVE TRAFFIC DATA</div>
-              <h3 class="text-base font-bold mt-1">Controllable Traffic Density &amp; Corridor Engine</h3>
+              <div class="text-caption font-mono text-[#B8F432]">SIMULATED TRAFFIC MODEL — NOT LIVE TRAFFIC DATA</div>
+              <h3 class=" mt-1">Controllable Traffic Density &amp; Corridor Engine</h3>
             </div>
             <div class="flex flex-wrap gap-2 text-xs">
               <button onclick="setTrafficLevel('FREE_FLOW')" class="px-3 py-2 rounded-xl bg-white/10">Free Flow</button>
@@ -396,7 +409,7 @@
         <!-- DISPATCHER SYSTEM DIAGNOSTICS + DATA STORAGE TRANSPARENCY -->
         <section id="view-disp-diagnostics" class="view-panel hidden space-y-6 text-xs">
           <div class="bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-3">
-            <h3 class="text-sm font-bold">Data Architecture &amp; Storage Transparency (Read-Only, Zero Secrets)</h3>
+            <h3 class="">Data Architecture &amp; Storage Transparency (Read-Only, Zero Secrets)</h3>
             <p class="text-[#6E737D]">Every table below lives in PostgreSQL 17.5 + PostGIS 3.5.2 + pgRouting 3.7.3 (`iers_db`, schema `iers`). Map tiles are served from OpenStreetMap Standard + Native PyQGIS.</p>
             <div id="storage-inventory-table" class="overflow-x-auto pt-2"></div>
           </div>
@@ -410,7 +423,7 @@
         </section>
 
         <section id="view-hosp-capacity" class="view-panel hidden max-w-xl bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-4 text-xs">
-          <h3 class="text-sm font-bold">Update Own Hospital Bed &amp; Facility Capacity</h3>
+          <h3 class="">Update Own Hospital Bed &amp; Facility Capacity</h3>
           <form onsubmit="saveHospitalCapacity(event)" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
               <div><label class="block text-[#6E737D] mb-1">Total Beds</label><input id="hc-beds" type="number" min="0" class="w-full px-3 py-2 rounded-xl border border-[#E6E8EC] bg-[#F4F5F7]" /></div>
@@ -436,7 +449,7 @@
         </section>
 
         <section id="view-hosp-incoming" class="view-panel hidden bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-3 text-xs">
-          <h3 class="text-sm font-bold">Incoming Ambulances Addressed to Your Hospital</h3>
+          <h3 class="">Incoming Ambulances Addressed to Your Hospital</h3>
           <div id="hosp-incoming-list" class="divide-y divide-[#E6E8EC]"></div>
         </section>
 
@@ -445,7 +458,7 @@
           <div class="bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 class="text-sm font-bold">Bulk CSV Operational Data Import</h3>
+                <h3 class="">Bulk CSV Operational Data Import</h3>
                 <p class="text-[#6E737D] mt-0.5">Upload UTF-8 CSV to update your hospital's capacity transactionally. Cross-hospital IDs are blocked and real coordinates are never overwritten.</p>
               </div>
               <a href="/api/v1/hospital/csv/template" onclick="downloadCsvTemplate(event)" class="px-3.5 py-2 rounded-xl border border-[#E6E8EC] hover:bg-[#F4F5F7] font-semibold flex items-center gap-1.5">
@@ -455,7 +468,7 @@
 
             <div class="border-2 border-dashed border-[#D5D8DF] rounded-2xl p-6 text-center bg-[#FAFAFB]">
               <input id="csv-file-input" type="file" accept=".csv,text/csv" onchange="handleCsvFile(event)" class="text-xs" />
-              <p class="text-[11px] text-[#6E737D] mt-2">Max 2 MB · Max 500 rows · UTF-8 CSV</p>
+              <p class="text-caption text-[#6E737D] mt-2">Max 2 MB · Max 500 rows · UTF-8 CSV</p>
             </div>
 
             <div class="flex items-center gap-3">
@@ -471,13 +484,13 @@
           </div>
 
           <div class="bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-3">
-            <h3 class="text-sm font-bold">CSV Import History</h3>
+            <h3 class="">CSV Import History</h3>
             <div id="csv-history-list" class="divide-y divide-[#E6E8EC]"></div>
           </div>
         </section>
 
         <section id="view-hosp-history" class="view-panel hidden bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-3 text-xs">
-          <h3 class="text-sm font-bold">Capacity Update Audit History</h3>
+          <h3 class="">Capacity Update Audit History</h3>
           <div id="hosp-history-list" class="divide-y divide-[#E6E8EC]"></div>
         </section>
 
@@ -488,17 +501,17 @@
           <div id="op-unit-card" class="bg-[#1C1D21] text-white rounded-2xl p-6"></div>
           <div id="op-assignment-card" class="bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-4"></div>
           <div class="bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-3">
-            <h4 class="text-sm font-bold">Device GPS / Location Update</h4>
+            <h4 class="">Device GPS / Location Update</h4>
             <div class="flex gap-2">
               <button onclick="operatorSendGPS()" class="flex-1 py-2.5 rounded-xl bg-[#1C1D21] text-[#B8F432] font-semibold">Send Real Browser GPS</button>
               <button onclick="operatorSendSimulatedStep()" class="flex-1 py-2.5 rounded-xl border border-[#E6E8EC] hover:bg-[#F4F5F7] font-semibold">Send Simulated Route Step</button>
             </div>
-            <div id="op-loc-msg" class="text-[11px] text-[#6E737D]"></div>
+            <div id="op-loc-msg" class="text-caption text-[#6E737D]"></div>
           </div>
         </section>
 
         <section id="view-op-history" class="view-panel hidden max-w-2xl mx-auto bg-white rounded-2xl border border-[#E6E8EC] p-6 space-y-3 text-xs">
-          <h3 class="text-sm font-bold">My Previous Assignments</h3>
+          <h3 class="">My Previous Assignments</h3>
           <div id="op-history-list" class="divide-y divide-[#E6E8EC]"></div>
         </section>
 
@@ -520,7 +533,7 @@
       <div class="md:col-span-5 p-6 flex flex-col justify-between text-xs">
         <div>
           <div class="flex items-center justify-between pb-3 border-b border-[#E6E8EC]">
-            <h3 id="modal-3d-title" class="text-base font-bold">Ambulance 3D Inspection</h3>
+            <h3 id="modal-3d-title" class="">Ambulance 3D Inspection</h3>
             <button onclick="close3DModal()" class="p-1.5 rounded-lg hover:bg-[#F4F5F7]"><i data-lucide="x" class="w-4 h-4"></i></button>
           </div>
           <div id="modal-3d-details" class="space-y-2.5 mt-4"></div>
@@ -882,7 +895,7 @@
         <div class="p-3 rounded-xl border border-[#E6E8EC] bg-[#FAFAFB] flex items-center justify-between gap-2">
           <div>
             <div class="font-bold">${i.incident_type} <span class="font-mono text-[10px] px-1.5 py-0.5 rounded ${i.priority==='P1'?'bg-[#EF4444] text-white':'bg-[#1C1D21] text-[#B8F432]'}">${i.priority}</span></div>
-            <div class="text-[11px] text-[#6E737D]">${i.id} · ${i.status} · ${i.ambulance_callsign || 'Unassigned'} → ${i.hospital_name || '—'}</div>
+            <div class="text-caption text-[#6E737D]">${i.id} · ${i.status} · ${i.ambulance_callsign || 'Unassigned'} → ${i.hospital_name || '—'}</div>
           </div>
           ${!['COMPLETED','CANCELLED'].includes(i.status) ? `<button onclick="dispCompleteInc('${i.id}')" class="px-2.5 py-1 rounded-lg bg-[#1C1D21] text-[#B8F432] font-semibold">Complete</button>` : ''}
         </div>`;
@@ -893,7 +906,7 @@
         <div class="py-3.5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="font-bold">${a.call_sign} <span class="font-mono text-[10px] text-[#6E737D]">${a.registration_number || ''}</span></div>
-            <div class="text-[11px] text-[#6E737D]">${a.vehicle_type} · ${a.latitude.toFixed(4)}, ${a.longitude.toFixed(4)} · Status: <b>${a.status}</b></div>
+            <div class="text-caption text-[#6E737D]">${a.vehicle_type} · ${a.latitude.toFixed(4)}, ${a.longitude.toFixed(4)} · Status: <b>${a.status}</b></div>
           </div>
           <button onclick='open3DModal(${JSON.stringify(a).replace(/'/g,"")})' class="px-3.5 py-1.5 rounded-xl bg-[#1C1D21] text-[#B8F432] font-semibold">3D Inspect</button>
         </div>
@@ -902,7 +915,7 @@
       document.getElementById('disp-hospitals-grid').innerHTML = hosps.map(h => `
         <div class="bg-white rounded-2xl border border-[#E6E8EC] p-4 space-y-1">
           <div class="font-bold">${h.name}</div>
-          <div class="text-[11px] text-[#6E737D]">${h.city} · Trauma T${h.trauma_level} · ${h.latitude.toFixed(4)}, ${h.longitude.toFixed(4)}</div>
+          <div class="text-caption text-[#6E737D]">${h.city} · Trauma T${h.trauma_level} · ${h.latitude.toFixed(4)}, ${h.longitude.toFixed(4)}</div>
           <div class="pt-2 font-mono text-[11px]">ICU: <b>${h.icu_available}</b> / ${h.total_beds} beds</div>
         </div>
       `).join('');
@@ -1127,7 +1140,7 @@
         <div class="py-3 flex items-center justify-between">
           <div>
             <div class="font-bold">${r.incident_type} <span class="font-mono text-[10px]">(${r.id})</span></div>
-            <div class="text-[11px] text-[#6E737D]">Status: <b>${r.status}</b> · Unit: ${r.ambulance_callsign || 'Assigning...'} · Hospital: ${r.hospital_name || '—'}</div>
+            <div class="text-caption text-[#6E737D]">Status: <b>${r.status}</b> · Unit: ${r.ambulance_callsign || 'Assigning...'} · Hospital: ${r.hospital_name || '—'}</div>
           </div>
           <button onclick="trackCitizenIncident('${r.id}')" class="px-3 py-1.5 rounded-lg bg-[#1C1D21] text-[#B8F432] font-semibold">Track</button>
         </div>
@@ -1162,7 +1175,7 @@
         <div class="font-bold">Assigned Unit: ${inc.ambulance_callsign || 'Pending'}</div>
         <div class="text-[#6E737D]">ETA: <b>${data.live_route ? data.live_route.eta_minutes + ' min' : 'Calculating'}</b></div>
         <div class="pt-2 border-t border-[#E6E8EC] space-y-2">
-          ${data.timeline.map(t => `<div><b>${t.new_status}</b><div class="text-[11px] text-[#6E737D]">${t.remarks}</div></div>`).join('')}
+          ${data.timeline.map(t => `<div><b>${t.new_status}</b><div class="text-caption text-[#6E737D]">${t.remarks}</div></div>`).join('')}
         </div>
       `;
     }
@@ -1302,7 +1315,7 @@
       document.getElementById('op-unit-card').innerHTML = `
         <div class="flex items-center justify-between">
           <div>
-            <div class="text-[10px] font-mono text-[#B8F432]">ASSIGNED VEHICLE</div>
+            <div class="text-caption font-mono text-[#B8F432]">ASSIGNED VEHICLE</div>
             <h3 class="text-xl font-bold mt-0.5">${u.call_sign} (${u.vehicle_type})</h3>
             <div class="text-white/60 mt-1 font-mono text-[11px]">${u.registration_number || ''} · ${u.latitude.toFixed(5)}, ${u.longitude.toFixed(5)}</div>
           </div>
@@ -1315,7 +1328,7 @@
 
       const a = data.active_assignment;
       document.getElementById('op-assignment-card').innerHTML = a ? `
-        <div class="flex items-center justify-between"><h4 class="text-sm font-bold">Active Assignment: ${a.id}</h4><span class="px-2 py-0.5 rounded bg-[#EF4444] text-white font-mono font-bold">${a.priority}</span></div>
+        <div class="flex items-center justify-between"><h4 class="">Active Assignment: ${a.id}</h4><span class="px-2 py-0.5 rounded bg-[#EF4444] text-white font-mono font-bold">${a.priority}</span></div>
         <div><b>Incident:</b> ${a.incident_type} · ${a.description || 'No extra notes'}</div>
         <div><b>Pickup:</b> ${a.latitude.toFixed(5)}, ${a.longitude.toFixed(5)}</div>
         <div><b>Destination Hospital:</b> ${a.hospital_name || 'Pending'}</div>
