@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from app.core.database import get_db
-from app.core.auth import require_roles
+from app.core.auth import require_roles, hash_password
 from app.services.pgrouting_service import find_nearest_road_node, compute_pgrouting_path
 from app.services.csv_import_service import get_sample_csv, parse_and_validate_csv, execute_hospital_csv_import
 
@@ -367,3 +367,59 @@ async def get_storage_architecture(db: AsyncSession = Depends(get_db), _: Dict[s
         cnt = (await db.execute(text(f"SELECT count(*) FROM public.{tname}"))).scalar()
         inv.append({"table": f"public.{tname}", "purpose": purpose, "spatial_column": scol, "category": cat, "row_count": int(cnt or 0)})
     return {"database": "emergency_db (PostgreSQL 18 + PostGIS 3.6 + pgRouting 4.0)", "schema": "public", "inventory": inv}
+
+
+# ============================================================================
+# 5. USER & OPERATOR ACCESS PROVISIONING (Dispatcher-Authorized)
+# ============================================================================
+@router.post("/users")
+async def create_stakeholder_user(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    _: Dict[str, Any] = Depends(require_roles("DISPATCHER")),
+):
+    """
+    Create a new CITIZEN, DISPATCHER, HOSPITAL_STAFF, or AMBULANCE_OPERATOR account.
+    For AMBULANCE_OPERATOR, pass assigned_entity_id as ambulance UUID or code (e.g. 'AMB_02').
+    For HOSPITAL_STAFF, pass assigned_entity_id as hospital UUID or code (e.g. 'HOSP_01').
+    """
+    name = (payload.get("name") or "").strip()
+    email = (payload.get("email") or "").strip().lower()
+    password = payload.get("password") or ""
+    role = (payload.get("role") or "").upper()
+    entity_ref = (payload.get("assigned_entity_id") or "").strip() or None
+
+    if not name or not email or not password or role not in ("CITIZEN", "DISPATCHER", "HOSPITAL_STAFF", "AMBULANCE_OPERATOR"):
+        raise HTTPException(status_code=400, detail="Valid name, email, password, and role are required")
+
+    resolved_entity_id = entity_ref
+    if role == "AMBULANCE_OPERATOR" and entity_ref:
+        row = (await db.execute(
+            text("SELECT ambulance_id::text FROM public.ambulances WHERE ambulance_id::text = :ref OR ambulance_code = :ref LIMIT 1"),
+            {"ref": entity_ref},
+        )).first()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Ambulance '{entity_ref}' not found")
+        resolved_entity_id = row[0]
+    elif role == "HOSPITAL_STAFF" and entity_ref:
+        row = (await db.execute(
+            text("SELECT hospital_id::text FROM public.hospitals WHERE hospital_id::text = :ref OR hospital_code = :ref LIMIT 1"),
+            {"ref": entity_ref},
+        )).first()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Hospital '{entity_ref}' not found")
+        resolved_entity_id = row[0]
+
+    res = await db.execute(
+        text("""
+            INSERT INTO public.users (name, email, password_hash, role, assigned_entity_id, is_active)
+            VALUES (:name, :email, :pwh, :role, :eid, TRUE)
+            ON CONFLICT (email) DO UPDATE
+            SET name = EXCLUDED.name, role = EXCLUDED.role, assigned_entity_id = EXCLUDED.assigned_entity_id, is_active = TRUE
+            RETURNING user_id::text, name, email, role, assigned_entity_id
+        """),
+        {"name": name, "email": email, "pwh": hash_password(password), "role": role, "eid": resolved_entity_id},
+    )
+    await db.commit()
+    return dict(res.mappings().first())
+
