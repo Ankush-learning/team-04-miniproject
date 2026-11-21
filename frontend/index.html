@@ -1743,30 +1743,58 @@
     }
 
     function navArrowIcon(leg, deg) {
-      const fill = leg === 'LEG_2' ? '#B3A1F8' : '#B8F432';
+      const fill = leg === 'LEG_2' ? '#7C3AED' : '#2563EB';
       return L.divIcon({
         className: '',
-        html: `<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;transform:rotate(${deg.toFixed(1)}deg);filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45));">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L20 20L12 16L4 20L12 2Z" fill="${fill}" stroke="#1C1D21" stroke-width="2" stroke-linejoin="round"/>
-          </svg>
+        html: `<div style="width:32px;height:32px;border-radius:999px;background:${fill};border:3px solid #FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(37,99,235,0.45);">
+          <div style="transform:rotate(${deg.toFixed(1)}deg);display:flex;align-items:center;justify-content:center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L20 20L12 16L4 20L12 2Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+          </div>
         </div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       });
     }
 
-    function drawLiveSimRoute(incId, coords, leg) {
+    function drawLiveSimRoute(incId, coords, leg, etaS, distM) {
       if (!coords || !coords.length) return;
       const latlngs = coords.map(c => c[0] > 30 ? [c[1], c[0]] : [c[0], c[1]]);
-      const innerColor = leg === 'LEG_2' ? '#B3A1F8' : '#B8F432';
+      const outerColor = leg === 'LEG_2' ? '#5B21B6' : '#1D4ED8';
+      const innerColor = leg === 'LEG_2' ? '#8B5CF6' : '#3B82F6';
+      const mid = latlngs[Math.floor(latlngs.length / 2)];
+      const endPt = latlngs[latlngs.length - 1];
+      const etaTxt = etaS ? `${Math.max(1, Math.round(etaS / 60))} min` : (leg === 'LEG_2' ? 'To Hospital' : 'To Scene');
+      const distTxt = distM ? `${(distM / 1000).toFixed(1)} km` : '';
+
       [dashMap, fullMap].forEach((m, idx) => {
         if (!m) return;
         const key = `${incId}_${idx}`;
         if (liveSimRouteLines[key]) m.removeLayer(liveSimRouteLines[key]);
-        const casing = L.polyline(latlngs, { color: '#1C1D21', weight: 8, opacity: 0.9 });
-        const inner = L.polyline(latlngs, { color: innerColor, weight: 4, opacity: 1.0, dashArray: leg === 'LEG_2' ? '8,6' : null });
-        liveSimRouteLines[key] = L.layerGroup([casing, inner]).addTo(m);
+        const casing = L.polyline(latlngs, { color: outerColor, weight: 8, opacity: 0.9, lineCap: 'round', lineJoin: 'round' });
+        const inner = L.polyline(latlngs, { color: innerColor, weight: 5, opacity: 1.0, lineCap: 'round', lineJoin: 'round' });
+        const etaPill = L.marker(mid, {
+          interactive: false,
+          zIndexOffset: 700,
+          icon: L.divIcon({
+            className: '',
+            html: `<div style="background:#FFFFFF;border:1.5px solid ${outerColor};border-radius:8px;padding:3px 8px;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap;font-family:Inter,sans-serif;">
+              <div style="font-size:11px;font-weight:700;color:#1C1D21;line-height:1.2;">${etaTxt}</div>
+              ${distTxt ? `<div style="font-size:10px;color:#6E737D;line-height:1.2;">${distTxt}</div>` : ''}
+            </div>`,
+            iconSize: [72, 30],
+            iconAnchor: [36, 15],
+          }),
+        });
+        const destPin = L.circleMarker(endPt, {
+          radius: 7,
+          color: '#FFFFFF',
+          weight: 2.5,
+          fillColor: leg === 'LEG_2' ? '#7C3AED' : '#EF4444',
+          fillOpacity: 1,
+        });
+        liveSimRouteLines[key] = L.layerGroup([casing, inner, destPin, etaPill]).addTo(m);
       });
     }
 
@@ -1823,7 +1851,7 @@
       cachedIncidents.forEach(inc => {
         if (!['COMPLETED', 'CANCELLED'].includes(inc.status) && inc.active_route_json && inc.active_route_json.coordinates) {
           activeIds.add(inc.id);
-          drawLiveSimRoute(inc.id, inc.active_route_json.coordinates, inc.active_leg || 'LEG_1');
+          drawLiveSimRoute(inc.id, inc.active_route_json.coordinates, inc.active_leg || 'LEG_1', inc.eta_seconds, inc.remaining_distance_m);
         }
       });
       Object.keys(liveSimRouteLines).forEach(k => {
