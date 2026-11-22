@@ -682,7 +682,7 @@ async def update_simulation_config(
 
 
 async def stop_simulation() -> Dict[str, Any]:
-    """Stop simulation without deleting any historical DB records."""
+    """Stop simulation without deleting any historical DB records; release any mid-mission SIM ambulances."""
     global _sim_running, _sim_paused, _sim_loop_task
     _sim_running = False
     _sim_paused = False
@@ -693,6 +693,19 @@ async def stop_simulation() -> Dict[str, Any]:
         if not t.done():
             t.cancel()
     _active_mission_tasks.clear()
+    try:
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("""
+                UPDATE public.ambulances SET status = 'AVAILABLE'
+                WHERE ambulance_id IN (
+                    SELECT assigned_ambulance_id FROM public.emergencies
+                    WHERE incident_code LIKE 'SIM-%' AND status NOT IN ('COMPLETED','CANCELLED')
+                      AND assigned_ambulance_id IS NOT NULL
+                )
+            """))
+            await db.commit()
+    except Exception:
+        pass
     return get_simulation_status()
 
 
