@@ -261,6 +261,10 @@ async def dispatcher_assign_ambulance(
         await db.commit()
 
     await _broadcast({"type": "DISPATCH_ASSIGNED", "incident_id": eid, "dispatch_id": dispatch_id, "ambulance_id": aid, "eta_seconds": eta_s})
+    # Start live route movement immediately on manual assignment so Citizen & Dispatcher maps show movement right away
+    if leg1 and leg1.get("coordinates"):
+        stop_telemetry_sim(aid)
+        _active_sim_tasks[aid] = asyncio.create_task(_run_route_telemetry_sim(eid, aid, leg1["coordinates"], leg1["total_distance_meters"], "LEG_1"))
     return {"status": "ASSIGNED", "dispatch_id": dispatch_id, "incident_id": eid, "ambulance_id": aid, "hospital_id": hid, "leg1_route": leg1, "eta_seconds": eta_s}
 
 
