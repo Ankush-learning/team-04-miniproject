@@ -1331,6 +1331,7 @@
 
     let citRouteCoords = [];
     async function trackCitizenIncident(incId) {
+      window._citTrackedIncId = incId;
       switchView('cit-track');
       if (!citMap) {
         citMap = L.map('cit-map').setView([15.38, 75.10], 13);
@@ -1942,7 +1943,17 @@
           const msg = JSON.parse(ev.data);
           if (msg.type === 'AMBULANCE_LOCATION' && msg.ambulance_id) {
             updateLiveAmbulanceMarker(msg.ambulance_id, msg.lat, msg.lon, msg.leg || 'LEG_1', msg.eta_seconds, msg.step_ms, msg.ambulance_callsign, msg.status, msg.progress_pct, msg.remaining_distance_m);
+            if (currentUser && currentUser.role === 'CITIZEN' && window._citTrackedIncId && msg.incident_id === window._citTrackedIncId && citMap) {
+              if (!window._citLiveAmbMarker) {
+                window._citLiveAmbMarker = L.marker([msg.lat, msg.lon], { icon: navArrowIcon(msg.leg || 'LEG_1', 0, msg.status), zIndexOffset: 950 }).addTo(citMap);
+              } else {
+                window._citLiveAmbMarker.setLatLng([msg.lat, msg.lon]);
+              }
+            }
             return;
+          }
+          if (currentUser && currentUser.role === 'CITIZEN' && window._citTrackedIncId && msg.incident_id === window._citTrackedIncId) {
+            if (typeof trackCitizenIncident === 'function') trackCitizenIncident(window._citTrackedIncId);
           }
           if (msg.route_coords && msg.incident_id) {
             drawLiveSimRoute(msg.incident_id, msg.route_coords, msg.leg || 'LEG_1');
