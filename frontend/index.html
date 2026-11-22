@@ -1808,10 +1808,30 @@
       return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
     }
 
-    function navArrowIcon(leg, deg, status) {
-      const ring = leg === 'LEG_2' ? '#7C3AED'
-        : (status === 'PICKUP_IN_PROGRESS' || status === 'ARRIVED_AT_EMERGENCY') ? '#F59E0B'
-        : '#2563EB';
+    const ROUTE_PALETTE = [
+      { inner: '#3B82F6', outer: '#1D4ED8' }, // Royal Blue
+      { inner: '#10B981', outer: '#047857' }, // Emerald
+      { inner: '#8B5CF6', outer: '#5B21B6' }, // Violet
+      { inner: '#F43F5E', outer: '#BE123C' }, // Rose
+      { inner: '#F59E0B', outer: '#B45309' }, // Amber
+      { inner: '#06B6D4', outer: '#0E7490' }, // Cyan
+      { inner: '#D946EF', outer: '#A21CAF' }, // Fuchsia
+      { inner: '#6366F1', outer: '#3730A3' }, // Indigo
+    ];
+    const incColorMap = {};
+    let incColorSeq = 0;
+    function getIncidentPalette(incId) {
+      if (!incId) return ROUTE_PALETTE[0];
+      if (!incColorMap[incId]) {
+        incColorMap[incId] = ROUTE_PALETTE[incColorSeq % ROUTE_PALETTE.length];
+        incColorSeq++;
+      }
+      return incColorMap[incId];
+    }
+
+    function navArrowIcon(leg, deg, status, incId) {
+      const pal = getIncidentPalette(incId);
+      const ring = pal.outer;
       return L.divIcon({
         className: '',
         html: `<div style="width:36px;height:36px;border-radius:999px;background:rgba(255,255,255,0.92);border:2.5px solid ${ring};display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(0,0,0,0.35);">
@@ -1833,8 +1853,9 @@
     function drawLiveSimRoute(incId, coords, leg, etaS, distM) {
       if (!coords || !coords.length) return;
       const latlngs = coords.map(c => c[0] > 30 ? [c[1], c[0]] : [c[0], c[1]]);
-      const outerColor = leg === 'LEG_2' ? '#5B21B6' : '#1D4ED8';
-      const innerColor = leg === 'LEG_2' ? '#8B5CF6' : '#3B82F6';
+      const pal = getIncidentPalette(incId);
+      const outerColor = pal.outer;
+      const innerColor = pal.inner;
       const mid = latlngs[Math.floor(latlngs.length / 2)];
       const endPt = latlngs[latlngs.length - 1];
       const etaTxt = etaS ? `${Math.max(1, Math.round(etaS / 60))} min` : (leg === 'LEG_2' ? 'To Hospital' : 'To Scene');
@@ -1844,15 +1865,16 @@
         if (!m) return;
         const key = `${incId}_${idx}`;
         if (liveSimRouteLines[key]) m.removeLayer(liveSimRouteLines[key]);
-        const casing = L.polyline(latlngs, { color: outerColor, weight: 8, opacity: 0.9, lineCap: 'round', lineJoin: 'round' });
-        const inner = L.polyline(latlngs, { color: innerColor, weight: 5, opacity: 1.0, lineCap: 'round', lineJoin: 'round' });
+        const dash = leg === 'LEG_2' ? '10,7' : null;
+        const casing = L.polyline(latlngs, { color: outerColor, weight: 8, opacity: 0.9, lineCap: 'round', lineJoin: 'round', dashArray: dash });
+        const inner = L.polyline(latlngs, { color: innerColor, weight: 4.5, opacity: 1.0, lineCap: 'round', lineJoin: 'round', dashArray: dash });
         const etaPill = L.marker(mid, {
           interactive: false,
           zIndexOffset: 700,
           icon: L.divIcon({
             className: '',
-            html: `<div style="background:#FFFFFF;border:1.5px solid ${outerColor};border-radius:8px;padding:3px 8px;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap;font-family:Inter,sans-serif;">
-              <div style="font-size:11px;font-weight:700;color:#1C1D21;line-height:1.2;">${etaTxt}</div>
+            html: `<div style="background:#FFFFFF;border:2px solid ${outerColor};border-radius:8px;padding:3px 8px;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap;font-family:Inter,sans-serif;">
+              <div style="font-size:11px;font-weight:700;color:${outerColor};line-height:1.2;">${etaTxt}</div>
               ${distTxt ? `<div style="font-size:10px;color:#6E737D;line-height:1.2;">${distTxt}</div>` : ''}
             </div>`,
             iconSize: [72, 30],
@@ -1863,7 +1885,7 @@
           radius: 7,
           color: '#FFFFFF',
           weight: 2.5,
-          fillColor: leg === 'LEG_2' ? '#7C3AED' : '#EF4444',
+          fillColor: outerColor,
           fillOpacity: 1,
         });
         liveSimRouteLines[key] = L.layerGroup([casing, inner, destPin, etaPill]).addTo(m);
@@ -1877,7 +1899,7 @@
       });
     }
 
-    function updateLiveAmbulanceMarker(ambId, lat, lon, leg, etaS, stepMs, callSign, status, progressPct, remM) {
+    function updateLiveAmbulanceMarker(ambId, lat, lon, leg, etaS, stepMs, callSign, status, progressPct, remM, incId) {
       if (!ambId || lat == null || lon == null) return;
       const prev = liveAmbAnimState[ambId];
       const startLat = prev ? prev.curLat : lat;
@@ -1891,7 +1913,7 @@
       const state = { startLat, startLon, targetLat: lat, targetLon: lon, curLat: startLat, curLon: startLon, deg, leg, t0: performance.now(), dur, raf: null };
       liveAmbAnimState[ambId] = state;
 
-      const icon = navArrowIcon(leg, deg, status);
+      const icon = navArrowIcon(leg, deg, status, incId);
       const label = `${callSign || 'Ambulance'} · ${leg === 'LEG_2' ? 'To Hospital' : 'To Emergency'} · ETA ${etaS || 0}s${progressPct ? ` (${progressPct}%)` : ''}`;
       [dashMap, fullMap].forEach((m, idx) => {
         if (!m) return;
@@ -1942,7 +1964,7 @@
         try {
           const msg = JSON.parse(ev.data);
           if (msg.type === 'AMBULANCE_LOCATION' && msg.ambulance_id) {
-            updateLiveAmbulanceMarker(msg.ambulance_id, msg.lat, msg.lon, msg.leg || 'LEG_1', msg.eta_seconds, msg.step_ms, msg.ambulance_callsign, msg.status, msg.progress_pct, msg.remaining_distance_m);
+            updateLiveAmbulanceMarker(msg.ambulance_id, msg.lat, msg.lon, msg.leg || 'LEG_1', msg.eta_seconds, msg.step_ms, msg.ambulance_callsign, msg.status, msg.progress_pct, msg.remaining_distance_m, msg.incident_id);
             if (currentUser && currentUser.role === 'CITIZEN' && window._citTrackedIncId && msg.incident_id === window._citTrackedIncId && citMap) {
               if (!window._citLiveAmbMarker) {
                 window._citLiveAmbMarker = L.marker([msg.lat, msg.lon], { icon: navArrowIcon(msg.leg || 'LEG_1', 0, msg.status), zIndexOffset: 950 }).addTo(citMap);
