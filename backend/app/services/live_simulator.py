@@ -247,10 +247,10 @@ async def _rank_best_ambulance(db, inc_lat: float, inc_lon: float, inc_node: int
     candidates = (await db.execute(
         text("""
             SELECT a.ambulance_id::text, a.call_sign, a.vehicle_type,
-                   (SELECT n.node_id FROM public.road_nodes n ORDER BY n.location <-> a.current_location LIMIT 1) AS amb_node_id
+                   (SELECT n.node_id FROM public.road_nodes n ORDER BY n.location <-> a.current_location::geometry LIMIT 1) AS amb_node_id
             FROM public.ambulances a
             WHERE a.status = 'AVAILABLE'
-            ORDER BY a.current_location <-> ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)
+            ORDER BY a.current_location::geometry <-> ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)
             LIMIT 3
         """),
         {"lon": inc_lon, "lat": inc_lat},
