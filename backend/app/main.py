@@ -393,7 +393,99 @@ async def create_emergency(
     )
     await db.commit()
     await ws_manager.broadcast({"type": "EMERGENCY_REPORTED", "incident_id": row["id"], "priority": priority})
-    return {"status": "RECEIVED", "incident_id": row["id"], "incident_code": row["incident_code"], "priority": priority}
+
+    # Automatic backend spatial ranking, ambulance assignment, hospital selection, and live movement
+    auto_assigned = None
+    if payload.get("auto_assign", True) and inc_node:
+        try:
+            from app.services.live_simulator import _rank_best_ambulance, _select_best_hospital
+            from app.routers.workflow import _active_sim_tasks, _run_route_telemetry_sim, stop_telemetry_sim
+            import asyncio as _asyncio
+
+            ranked = await _rank_best_ambulance(db, lat, lon, int(inc_node), priority)
+            hosp_choice = await _select_best_hospital(db, lat, lon, int(inc_node), priority)
+            if ranked and hosp_choice:
+                amb, leg1 = ranked
+                hosp, _leg2 = hosp_choice
+                aid, call_sign = amb["ambulance_id"], amb["call_sign"]
+                hid, hname = hosp["hospital_id"], hosp["name"]
+                eta_s = max(15, int(round(leg1["total_duration_seconds"])))
+
+                locked = (await db.execute(
+                    text("SELECT status FROM public.ambulances WHERE ambulance_id = CAST(:aid AS uuid) FOR UPDATE"),
+                    {"aid": aid},
+                )).scalar()
+                if locked == "AVAILABLE":
+                    await db.execute(
+                        text("UPDATE public.ambulances SET status = 'ASSIGNED' WHERE ambulance_id = CAST(:aid AS uuid)"),
+                        {"aid": aid},
+                    )
+                    disp_id = (await db.execute(
+                        text("""
+                            INSERT INTO public.dispatches (emergency_id, ambulance_id, hospital_id, status)
+                            VALUES (CAST(:eid AS uuid), CAST(:aid AS uuid), CAST(:hid AS uuid), 'ACTIVE')
+                            RETURNING dispatch_id::text
+                        """),
+                        {"eid": row["id"], "aid": aid, "hid": hid},
+                    )).scalar()
+                    await db.execute(
+                        text("""
+                            UPDATE public.emergencies
+                            SET assigned_ambulance_id = CAST(:aid AS uuid),
+                                target_hospital_id = CAST(:hid AS uuid),
+                                status = 'ASSIGNED', active_leg = 'LEG_1',
+                                active_route_json = CAST(:rjson AS jsonb),
+                                eta_seconds = :eta, remaining_distance_m = :rem,
+                                dispatched_at = NOW()
+                            WHERE emergency_id = CAST(:eid AS uuid)
+                        """),
+                        {"aid": aid, "hid": hid, "rjson": json.dumps(leg1), "eta": eta_s, "rem": leg1["total_distance_meters"], "eid": row["id"]},
+                    )
+                    await db.execute(
+                        text("""
+                            INSERT INTO public.route_history (dispatch_id, algorithm, route_geom, distance_m, estimated_time_s, network_version)
+                            VALUES (CAST(:did AS uuid), 'ASTAR', ST_SetSRID(ST_GeomFromGeoJSON(:gjson), 4326), :dm, :ts, 'hubballi-auto-dispatch')
+                        """),
+                        {"did": disp_id, "gjson": json.dumps(leg1["geojson"]["geometry"]), "dm": leg1["total_distance_meters"], "ts": leg1["total_duration_seconds"]},
+                    )
+                    await db.execute(
+                        text("""
+                            INSERT INTO public.emergency_events (emergency_id, old_status, new_status, changed_by_email, remarks)
+                            VALUES (CAST(:eid AS uuid), 'RECEIVED', 'ASSIGNED', 'auto-dispatch@iers.gov.in', :rem)
+                        """),
+                        {"eid": row["id"], "rem": f"Auto-assigned {call_sign} -> {hname} (ETA {eta_s}s via pgRouting A*)"},
+                    )
+                    await db.commit()
+
+                    await ws_manager.broadcast({
+                        "type": "DISPATCH_ASSIGNED",
+                        "incident_id": row["id"],
+                        "dispatch_id": disp_id,
+                        "ambulance_id": aid,
+                        "ambulance_callsign": call_sign,
+                        "hospital_id": hid,
+                        "hospital_name": hname,
+                        "eta_seconds": eta_s,
+                        "remaining_distance_m": leg1["total_distance_meters"],
+                        "route_coords": leg1["coordinates"],
+                        "leg": "LEG_1",
+                    })
+                    if leg1.get("coordinates"):
+                        stop_telemetry_sim(aid)
+                        _active_sim_tasks[aid] = _asyncio.create_task(
+                            _run_route_telemetry_sim(row["id"], aid, leg1["coordinates"], leg1["total_distance_meters"], "LEG_1")
+                        )
+                    auto_assigned = {"dispatch_id": disp_id, "ambulance_id": aid, "ambulance_callsign": call_sign, "hospital_name": hname, "eta_seconds": eta_s}
+        except Exception as exc:
+            print(f"[AutoDispatch] Failed for {row['id']}: {exc}")
+
+    return {
+        "status": "ASSIGNED" if auto_assigned else "RECEIVED",
+        "incident_id": row["id"],
+        "incident_code": row["incident_code"],
+        "priority": priority,
+        "auto_dispatch": auto_assigned,
+    }
 
 
 @app.patch("/api/v1/incidents/{incident_id}/status")
