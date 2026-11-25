@@ -195,7 +195,13 @@ async def dispatcher_assign_ambulance(
         eid = inc["emergency_id"]
 
         amb = (await db.execute(
-            text("SELECT ambulance_id::text, call_sign, status, current_node_id, height_meters, width_meters, weight_tons FROM public.ambulances WHERE ambulance_id::text = :aid OR ambulance_code = :aid"),
+            text("""
+                SELECT a.ambulance_id::text, a.call_sign, a.status,
+                       (SELECT n.node_id FROM public.road_nodes n ORDER BY n.location <-> a.current_location::geometry LIMIT 1) AS current_node_id,
+                       a.height_meters, a.width_meters, a.weight_tons
+                FROM public.ambulances a
+                WHERE a.ambulance_id::text = :aid OR a.ambulance_code = :aid
+            """),
             {"aid": ambulance_id},
         )).mappings().first()
         if not amb or amb["status"] != "AVAILABLE":
