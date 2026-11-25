@@ -1988,6 +1988,11 @@
           if (currentUser && currentUser.role === 'CITIZEN' && window._citTrackedIncId && msg.incident_id === window._citTrackedIncId) {
             if (typeof trackCitizenIncident === 'function') trackCitizenIncident(window._citTrackedIncId);
           }
+          if (currentUser && currentUser.role === 'AMBULANCE_OPERATOR' && (msg.type === 'DISPATCH_ASSIGNED' || msg.type === 'CREW_STATUS_UPDATE' || msg.type === 'INCIDENT_COMPLETED')) {
+            if (!msg.ambulance_id || !currentUser.assigned_entity_id || msg.ambulance_id === currentUser.assigned_entity_id) {
+              if (typeof loadOperatorPortalData === 'function') loadOperatorPortalData();
+            }
+          }
           if (msg.route_coords && msg.incident_id) {
             drawLiveSimRoute(msg.incident_id, msg.route_coords, msg.leg || 'LEG_1');
           }
@@ -2011,6 +2016,46 @@
         } catch (e) {}
       };
       liveWS.onclose = () => setTimeout(connectLiveWS, 3000);
+    }
+
+    function switchAuthTab(tab) {
+      const isUp = tab === 'signup';
+      document.getElementById('login-form').classList.toggle('hidden', isUp);
+      document.getElementById('register-form').classList.toggle('hidden', !isUp);
+      document.getElementById('tab-signin').className = isUp
+        ? 'flex-1 py-2 rounded-lg text-slate-600 text-xs font-semibold transition'
+        : 'flex-1 py-2 rounded-lg bg-[#1C1D21] text-[#B8F432] text-xs font-semibold transition';
+      document.getElementById('tab-signup').className = isUp
+        ? 'flex-1 py-2 rounded-lg bg-[#1C1D21] text-[#B8F432] text-xs font-semibold transition'
+        : 'flex-1 py-2 rounded-lg text-slate-600 text-xs font-semibold transition';
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const err = document.getElementById('reg-error');
+      err.classList.add('hidden');
+      try {
+        const res = await fetch('/api/v1/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: document.getElementById('reg-name').value.trim(),
+            email: document.getElementById('reg-email').value.trim(),
+            password: document.getElementById('reg-password').value,
+            role: document.getElementById('reg-role').value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Registration failed');
+        authToken = data.access_token;
+        currentUser = data.user;
+        localStorage.setItem('iers_token', authToken);
+        localStorage.setItem('iers_user', JSON.stringify(currentUser));
+        enterPortal();
+      } catch (ex) {
+        err.textContent = ex.message;
+        err.classList.remove('hidden');
+      }
     }
 
     if (authToken && currentUser && ROLE_MENUS[currentUser.role]) {

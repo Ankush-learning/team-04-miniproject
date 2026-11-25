@@ -136,6 +136,46 @@ async def login(payload: dict, db: AsyncSession = Depends(get_db)):
     }
 
 
+@app.post("/api/v1/auth/register")
+async def register(payload: dict, db: AsyncSession = Depends(get_db)):
+    name = (payload.get("name") or "").strip()
+    email = (payload.get("email") or "").strip().lower()
+    password = payload.get("password") or ""
+    role = (payload.get("role") or "CITIZEN").strip().upper()
+    if not name or not email or len(password) < 4:
+        raise HTTPException(status_code=400, detail="Name, email, and password (min 4 chars) are required")
+    if role not in ("CITIZEN", "AMBULANCE_OPERATOR", "HOSPITAL_STAFF"):
+        role = "CITIZEN"
+
+    existing = (await db.execute(text("SELECT 1 FROM public.users WHERE LOWER(email) = :em"), {"em": email})).scalar()
+    if existing:
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+
+    assigned_entity_id = None
+    if role == "AMBULANCE_OPERATOR":
+        assigned_entity_id = (await db.execute(text("SELECT ambulance_id::text FROM public.ambulances ORDER BY call_sign LIMIT 1"))).scalar()
+    elif role == "HOSPITAL_STAFF":
+        assigned_entity_id = (await db.execute(text("SELECT hospital_id::text FROM public.hospitals ORDER BY name LIMIT 1"))).scalar()
+
+    from app.core.auth import hash_password
+    pw_hash = hash_password(password)
+    row = (await db.execute(
+        text("""
+            INSERT INTO public.users (name, email, password_hash, role, assigned_entity_id, is_active)
+            VALUES (:name, :em, :pw, :role, :ent, TRUE)
+            RETURNING user_id::text, name, email, role, assigned_entity_id
+        """),
+        {"name": name, "em": email, "pw": pw_hash, "role": role, "ent": assigned_entity_id},
+    )).mappings().first()
+    await db.commit()
+
+    token = create_access_token({
+        "sub": row["user_id"], "name": row["name"], "email": row["email"],
+        "role": row["role"], "assigned_entity_id": row["assigned_entity_id"],
+    })
+    return {"access_token": token, "token_type": "bearer", "user": dict(row)}
+
+
 @app.get("/api/v1/auth/me")
 async def get_me(user: Dict[str, Any] = Depends(get_current_user)):
     return user
