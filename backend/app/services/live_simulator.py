@@ -703,6 +703,10 @@ async def stop_simulation() -> Dict[str, Any]:
                       AND assigned_ambulance_id IS NOT NULL
                 )
             """))
+            await db.execute(text("""
+                UPDATE public.emergencies SET status = 'COMPLETED', resolved_at = NOW()
+                WHERE incident_code LIKE 'SIM-%' AND status NOT IN ('COMPLETED','CANCELLED')
+            """))
             await db.commit()
     except Exception:
         pass
