@@ -1615,40 +1615,217 @@
       });
     }
 
-    function startOperatorNavAnimation(coords, totalKm, isLeg2) {
+    let opNavState = null;
+
+    function _haversineM(a, b) {
+      const R = 6371000;
+      const toRad = d => d * Math.PI / 180;
+      const dLat = toRad(b[0] - a[0]), dLon = toRad(b[1] - a[1]);
+      const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+    }
+
+    function _segBearing(a, b) {
+      const toRad = d => d * Math.PI / 180;
+      const dLon = toRad(b[1] - a[1]);
+      const y = Math.sin(dLon) * Math.cos(toRad(b[0]));
+      const x = Math.cos(toRad(a[0])) * Math.sin(toRad(b[0])) - Math.sin(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.cos(dLon);
+      return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+    }
+
+    function _turnArrowSvg(type) {
+      if (type === 'LEFT') return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19v-7a3 3 0 0 0-3-3H5"/><path d="M9 5L5 9l4 4"/></svg>';
+      if (type === 'RIGHT') return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19v-7a3 3 0 0 1 3-3h7"/><path d="M15 5l4 4-4 4"/></svg>';
+      if (type === 'U-TURN') return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19V9a4 4 0 0 1 8 0v6"/><path d="M13 11l4 4 4-4"/></svg>';
+      if (type === 'ARRIVAL') return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8F432" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+      return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+    }
+
+    function opNavTogglePause() {
+      if (!opNavState) return;
+      opNavState.paused = !opNavState.paused;
+      opNavState.lastNow = performance.now();
+      const b = document.getElementById('op-nav-pause-btn');
+      if (b) b.textContent = opNavState.paused ? 'Resume' : 'Pause';
+    }
+
+    function opNavSetSpeed(kmh) {
+      if (!opNavState) return;
+      opNavState.speedKmh = Number(kmh) || 40;
+    }
+
+    function opNavRestart() {
+      if (!opNavState) return;
+      opNavState.traveledM = 0;
+      opNavState.paused = false;
+      opNavState.finished = false;
+      opNavState.lastNow = performance.now();
+      const b = document.getElementById('op-nav-pause-btn');
+      if (b) b.textContent = 'Pause';
+    }
+
+    function opNavStop() {
+      if (opNavAnimId) cancelAnimationFrame(opNavAnimId);
+      opNavAnimId = null;
+      if (opNavState) { opNavState.paused = true; opNavState.finished = true; }
+    }
+
+    function startOperatorNavAnimation(coords, totalKm, isLeg2, roadNames = [], destLabel = 'Destination') {
       if (opNavAnimId) cancelAnimationFrame(opNavAnimId);
       if (!coords || coords.length < 2 || !opMap) return;
 
-      const trailLine = L.polyline([coords[0]], { color: '#94A3B8', weight: 5, opacity: 0.55 }).addTo(opLayer);
-      const aheadLine = L.polyline(coords, { color: isLeg2 ? '#16A34A' : '#1C1D21', weight: 6, opacity: 0.95 }).addTo(opLayer);
-      const navMarker = L.marker(coords[0], { icon: navArrowIcon(0), zIndexOffset: 1000 }).addTo(opLayer);
+      // Normalize to [lat, lon]
+      const pts = coords.map(c => c[0] > 30 ? [c[1], c[0]] : [c[0], c[1]]);
+      const cumDist = [0];
+      for (let i = 1; i < pts.length; i++) cumDist.push(cumDist[i - 1] + _haversineM(pts[i - 1], pts[i]));
+      const totalM = Math.max(50, cumDist[cumDist.length - 1]);
 
-      const durationMs = 16000; // 16-second smooth Google-Maps-style navigation playback
-      const startTime = performance.now();
-      opMap.setView(coords[0], 15, { animate: true });
+      // Extract real geometric turn maneuvers from consecutive segment bearings
+      const streets = (roadNames || []).filter(Boolean);
+      const maneuvers = [];
+      for (let i = 1; i < pts.length - 1; i++) {
+        const b1 = _segBearing(pts[i - 1], pts[i]);
+        const b2 = _segBearing(pts[i], pts[i + 1]);
+        let diff = ((b2 - b1 + 540) % 360) - 180;
+        let type = null;
+        if (Math.abs(diff) > 135) type = 'U-TURN';
+        else if (diff <= -35) type = 'LEFT';
+        else if (diff >= 35) type = 'RIGHT';
+        if (type && (!maneuvers.length || cumDist[i] - maneuvers[maneuvers.length - 1].distM > 45)) {
+          const road = streets[Math.min(streets.length - 1, Math.floor((i / pts.length) * streets.length))] || 'Hubballi Road';
+          maneuvers.push({ distM: cumDist[i], type, road });
+        }
+      }
+      maneuvers.push({ distM: totalM, type: 'ARRIVAL', road: destLabel });
+
+      // Clear previous dynamic route layers & inject Google Navigation HUD
+      const outerC = isLeg2 ? '#047857' : '#1D4ED8';
+      const innerC = isLeg2 ? '#10B981' : '#3B82F6';
+      const trailLine = L.polyline([pts[0]], { color: '#94A3B8', weight: 6, opacity: 0.65, lineCap: 'round' }).addTo(opLayer);
+      const aheadCasing = L.polyline(pts, { color: outerC, weight: 10, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(opLayer);
+      const aheadLine = L.polyline(pts, { color: innerC, weight: 6, opacity: 1.0, lineCap: 'round', lineJoin: 'round' }).addTo(opLayer);
+      const initBearing = _segBearing(pts[0], pts[1]);
+      const navMarker = L.marker(pts[0], { icon: ambulanceIcon(isLeg2 ? 'EN_ROUTE_TO_HOSPITAL' : 'EN_ROUTE_TO_EMERGENCY', initBearing), zIndexOffset: 1000 }).addTo(opLayer);
+
+      const opMapEl = document.getElementById('op-map');
+      if (opMapEl) {
+        opMapEl.style.position = 'relative';
+        opMapEl.querySelectorAll('.gnav-hud').forEach(el => el.remove());
+        const topHud = document.createElement('div');
+        topHud.className = 'gnav-hud';
+        topHud.style.cssText = 'position:absolute;top:12px;left:54px;right:12px;z-index:1000;background:#0F766E;color:#FFFFFF;border-radius:14px;padding:10px 14px;box-shadow:0 6px 20px rgba(0,0,0,0.28);display:flex;align-items:center;gap:12px;pointer-events:none;transition:all 0.2s;';
+        topHud.innerHTML = `
+          <div id="gnav-arrow" style="width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,0.16);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${_turnArrowSvg('STRAIGHT')}</div>
+          <div style="min-width:0;flex:1;">
+            <div id="gnav-dist" style="font-size:12px;font-weight:700;color:#B8F432;letter-spacing:0.02em;">Starting navigation...</div>
+            <div id="gnav-instr" style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Continue on ${streets[0] || 'Hubballi Arterial Road'}</div>
+            <div style="font-size:11px;opacity:0.85;">Toward ${destLabel}</div>
+          </div>
+        `;
+        const botHud = document.createElement('div');
+        botHud.className = 'gnav-hud';
+        botHud.style.cssText = 'position:absolute;bottom:14px;left:14px;right:14px;z-index:1000;background:#FFFFFF;border:1.5px solid #E2E8F0;border-radius:14px;padding:10px 14px;box-shadow:0 6px 20px rgba(15,23,42,0.18);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;';
+        botHud.innerHTML = `
+          <div>
+            <div id="gnav-eta" style="font-size:18px;font-weight:800;color:#059669;line-height:1.1;">—</div>
+            <div id="gnav-sub" style="font-size:11px;color:#475569;margin-top:2px;">${isLeg2 ? 'Leg 2 · Hospital Transport' : 'Leg 1 · Emergency Response'}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <select onchange="opNavSetSpeed(this.value)" style="padding:4px 8px;border-radius:8px;border:1px solid #CBD5E1;font-size:12px;font-weight:600;background:#F8FAFC;color:#0F172A;">
+              <option value="20">20 km/h</option>
+              <option value="40" selected>40 km/h</option>
+              <option value="60">60 km/h</option>
+              <option value="80">80 km/h</option>
+            </select>
+            <button id="op-nav-pause-btn" onclick="opNavTogglePause()" style="padding:5px 10px;border-radius:8px;background:#1C1D21;color:#B8F432;font-size:12px;font-weight:600;border:none;cursor:pointer;">Pause</button>
+            <button onclick="opNavRestart()" style="padding:5px 10px;border-radius:8px;background:#F1F5F9;color:#0F172A;font-size:12px;font-weight:600;border:1px solid #CBD5E1;cursor:pointer;">Restart</button>
+          </div>
+        `;
+        opMapEl.appendChild(topHud);
+        opMapEl.appendChild(botHud);
+      }
+
+      opNavState = { traveledM: 0, speedKmh: 40, paused: false, finished: false, lastNow: performance.now(), smoothBearing: initBearing };
+      opMap.setView(pts[0], 16, { animate: true });
 
       function step(now) {
-        const t = Math.min(1, (now - startTime) / durationMs);
-        const exactIdx = t * (coords.length - 1);
-        const i = Math.min(coords.length - 2, Math.floor(exactIdx));
-        const frac = exactIdx - i;
-        const [lat1, lon1] = coords[i];
-        const [lat2, lon2] = coords[i + 1];
+        if (!opNavState) return;
+        const dt = Math.min(0.1, (now - opNavState.lastNow) / 1000);
+        opNavState.lastNow = now;
+
+        if (!opNavState.paused && !opNavState.finished) {
+          // Advance along real road distance at selected km/h (with 1.8x demo responsiveness)
+          opNavState.traveledM = Math.min(totalM, opNavState.traveledM + (opNavState.speedKmh / 3.6) * dt * 1.8);
+        }
+
+        // Locate current segment
+        let segIdx = 0;
+        while (segIdx < cumDist.length - 2 && cumDist[segIdx + 1] < opNavState.traveledM) segIdx++;
+        const segLen = Math.max(0.01, cumDist[segIdx + 1] - cumDist[segIdx]);
+        const frac = Math.max(0, Math.min(1, (opNavState.traveledM - cumDist[segIdx]) / segLen));
+        const [lat1, lon1] = pts[segIdx];
+        const [lat2, lon2] = pts[segIdx + 1];
         const lat = lat1 + (lat2 - lat1) * frac;
         const lon = lon1 + (lon2 - lon1) * frac;
-        const bearing = (Math.atan2(lon2 - lon1, lat2 - lat1) * 180 / Math.PI + 360) % 360;
+
+        // Smooth heading interpolation
+        const targetB = _segBearing(pts[segIdx], pts[segIdx + 1]);
+        let bDiff = ((targetB - opNavState.smoothBearing + 540) % 360) - 180;
+        opNavState.smoothBearing = (opNavState.smoothBearing + bDiff * 0.18 + 360) % 360;
 
         navMarker.setLatLng([lat, lon]);
-        navMarker.setIcon(navArrowIcon(Math.round(bearing)));
-        trailLine.setLatLngs([...coords.slice(0, i + 1), [lat, lon]]);
-        aheadLine.setLatLngs([[lat, lon], ...coords.slice(i + 1)]);
-        opMap.panTo([lat, lon], { animate: false });
+        navMarker.setIcon(ambulanceIcon(isLeg2 ? 'EN_ROUTE_TO_HOSPITAL' : 'EN_ROUTE_TO_EMERGENCY', Math.round(opNavState.smoothBearing)));
 
-        const remSec = Math.max(0, Math.ceil((1 - t) * (durationMs / 1000)));
-        const remKm = (totalKm * (1 - t)).toFixed(2);
-        document.getElementById('op-map-eta').textContent = t < 1 ? `NAVIGATING · ETA ${remSec}s · ${remKm} km` : 'ARRIVED AT DESTINATION';
+        // Dynamic completed vs remaining route polylines
+        trailLine.setLatLngs([...pts.slice(0, segIdx + 1), [lat, lon]]);
+        const remPts = [[lat, lon], ...pts.slice(segIdx + 1)];
+        aheadCasing.setLatLngs(remPts);
+        aheadLine.setLatLngs(remPts);
 
-        if (t < 1) opNavAnimId = requestAnimationFrame(step);
+        // Google Maps look-ahead camera: keep ambulance in lower-middle showing road ahead
+        const rad = opNavState.smoothBearing * Math.PI / 180;
+        const lookLat = lat + Math.cos(rad) * 0.00055;
+        const lookLon = lon + Math.sin(rad) * 0.00055;
+        opMap.setView([lookLat, lookLon], opMap.getZoom() < 15 ? 16 : opMap.getZoom(), { animate: false });
+
+        // Update Top Turn-by-Turn HUD
+        const nextM = maneuvers.find(m => m.distM > opNavState.traveledM + 8) || maneuvers[maneuvers.length - 1];
+        const distToTurn = Math.max(0, Math.round(nextM.distM - opNavState.traveledM));
+        const arrowEl = document.getElementById('gnav-arrow');
+        const distEl = document.getElementById('gnav-dist');
+        const instrEl = document.getElementById('gnav-instr');
+        if (arrowEl && distEl && instrEl) {
+          if (opNavState.traveledM >= totalM - 2) {
+            arrowEl.innerHTML = _turnArrowSvg('ARRIVAL');
+            distEl.textContent = 'ARRIVED';
+            instrEl.textContent = `You have arrived at ${destLabel}`;
+            opNavState.finished = true;
+          } else {
+            arrowEl.innerHTML = _turnArrowSvg(distToTurn > 150 ? 'STRAIGHT' : nextM.type);
+            distEl.textContent = distToTurn >= 1000 ? `In ${(distToTurn / 1000).toFixed(1)} km` : `In ${distToTurn} m`;
+            if (nextM.type === 'ARRIVAL') {
+              instrEl.textContent = distToTurn < 60 ? `Arriving at ${destLabel}` : `Continue straight toward ${destLabel}`;
+            } else if (distToTurn > 150) {
+              instrEl.textContent = `Continue straight on ${nextM.road}`;
+            } else if (distToTurn > 35) {
+              instrEl.textContent = `Prepare to turn ${nextM.type.toLowerCase()} onto ${nextM.road}`;
+            } else {
+              instrEl.textContent = `Turn ${nextM.type.toLowerCase()} onto ${nextM.road}`;
+            }
+          }
+        }
+
+        // Update Bottom ETA Bar
+        const remM = Math.max(0, totalM - opNavState.traveledM);
+        const remSec = Math.ceil(remM / Math.max(1, opNavState.speedKmh / 3.6));
+        const etaStr = remSec >= 60 ? `${Math.ceil(remSec / 60)} min` : `${remSec} sec`;
+        const distStr = remM >= 1000 ? `${(remM / 1000).toFixed(2)} km` : `${Math.round(remM)} m`;
+        const etaEl = document.getElementById('gnav-eta');
+        if (etaEl) etaEl.innerHTML = opNavState.finished ? 'Arrived' : `${etaStr} <span style="font-size:13px;font-weight:600;color:#64748B;">(${distStr})</span>`;
+        const topEtaBadge = document.getElementById('op-map-eta');
+        if (topEtaBadge) topEtaBadge.textContent = opNavState.finished ? 'ARRIVED' : `${etaStr} · ${distStr} · ${opNavState.speedKmh} km/h`;
+
+        opNavAnimId = requestAnimationFrame(step);
       }
       opNavAnimId = requestAnimationFrame(step);
     }
@@ -1754,17 +1931,7 @@
             opMapEl.appendChild(botHud);
           }
 
-          if (a.status === 'EN_ROUTE_TO_EMERGENCY' || a.status === 'EN_ROUTE_TO_HOSPITAL') {
-            startOperatorNavAnimation(coords, totalKm, isLeg2);
-          } else {
-            if (opNavAnimId) cancelAnimationFrame(opNavAnimId);
-            const outerC = isLeg2 ? '#047857' : '#1D4ED8';
-            const innerC = isLeg2 ? '#10B981' : '#3B82F6';
-            L.polyline(coords, { color: outerC, weight: 10, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(opLayer);
-            const poly = L.polyline(coords, { color: innerC, weight: 6, opacity: 1.0, lineCap: 'round', lineJoin: 'round' }).addTo(opLayer);
-            opMap.fitBounds(poly.getBounds(), { padding: [70, 70] });
-            document.getElementById('op-map-eta').textContent = `${etaMin} min · ${totalKm} km`;
-          }
+          startOperatorNavAnimation(coords, totalKm, isLeg2, streets, destLabel);
         } else {
           opMap.setView([a.latitude, a.longitude], 14);
         }
