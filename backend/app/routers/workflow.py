@@ -109,9 +109,13 @@ async def analyze_emergency_spatial(
 
     ambs = (await db.execute(
         text("""
-            SELECT ambulance_id::text AS id, ambulance_code, call_sign, vehicle_type, status,
-                   latitude, longitude, current_node_id, height_meters, width_meters, weight_tons, capabilities
-            FROM public.ambulances WHERE status = 'AVAILABLE' AND current_node_id IS NOT NULL
+            SELECT a.ambulance_id::text AS id, a.ambulance_code, a.call_sign, a.vehicle_type, a.status,
+                   ST_Y(a.current_location::geometry) AS latitude,
+                   ST_X(a.current_location::geometry) AS longitude,
+                   (SELECT n.node_id FROM public.road_nodes n ORDER BY n.location <-> a.current_location::geometry LIMIT 1) AS current_node_id,
+                   a.height_meters, a.width_meters, a.weight_tons, a.capabilities
+            FROM public.ambulances a
+            WHERE a.status = 'AVAILABLE'
         """)
     )).mappings().all()
 
