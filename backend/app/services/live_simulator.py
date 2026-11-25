@@ -50,6 +50,7 @@ EMERGENCY_TEMPLATES = [
 ]
 
 _sim_running: bool = False
+_sim_spawning: bool = False
 _sim_paused: bool = False
 _sim_loop_task: Optional[asyncio.Task] = None
 _active_mission_tasks: Dict[str, asyncio.Task] = {}
@@ -613,9 +614,9 @@ async def _spawn_one_emergency() -> Optional[str]:
 
 
 async def _simulation_loop():
-    global _sim_running
+    global _sim_spawning
     await ensure_simulated_citizens()
-    while _sim_running:
+    while _sim_spawning:
         try:
             if _sim_paused:
                 await asyncio.sleep(0.4)
@@ -640,14 +641,15 @@ async def start_simulation(
     spawn_interval_s: int = 6,
     speed_multiplier: float = 2.0,
 ) -> Dict[str, Any]:
-    global _sim_running, _sim_paused, _sim_loop_task
+    global _sim_running, _sim_spawning, _sim_paused, _sim_loop_task
     _stats["max_concurrent"] = max(1, min(8, int(max_concurrent)))
     _stats["spawn_interval_s"] = max(3, min(30, int(spawn_interval_s)))
     _stats["speed_multiplier"] = max(1.0, min(10.0, float(speed_multiplier)))
     _sim_paused = False
-    if _sim_running:
-        return get_simulation_status()
     _sim_running = True
+    if _sim_spawning and _sim_loop_task and not _sim_loop_task.done():
+        return get_simulation_status()
+    _sim_spawning = True
     _stats["started_at"] = datetime.utcnow().isoformat() + "Z"
     _sim_loop_task = asyncio.create_task(_simulation_loop())
     return get_simulation_status()
@@ -682,40 +684,27 @@ async def update_simulation_config(
 
 
 async def stop_simulation() -> Dict[str, Any]:
-    """Stop simulation without deleting any historical DB records; release any mid-mission SIM ambulances."""
-    global _sim_running, _sim_paused, _sim_loop_task
-    _sim_running = False
+    """Stop spawning NEW emergencies while letting already-dispatched ambulances finish their routes cleanly."""
+    global _sim_spawning, _sim_paused, _sim_loop_task
+    _sim_spawning = False
     _sim_paused = False
     if _sim_loop_task and not _sim_loop_task.done():
         _sim_loop_task.cancel()
     _sim_loop_task = None
-    for t in list(_active_mission_tasks.values()):
-        if not t.done():
-            t.cancel()
-    _active_mission_tasks.clear()
-    try:
-        async with AsyncSessionLocal() as db:
-            await db.execute(text("""
-                UPDATE public.ambulances SET status = 'AVAILABLE'
-                WHERE ambulance_id IN (
-                    SELECT assigned_ambulance_id FROM public.emergencies
-                    WHERE incident_code LIKE 'SIM-%' AND status NOT IN ('COMPLETED','CANCELLED')
-                      AND assigned_ambulance_id IS NOT NULL
-                )
-            """))
-            await db.execute(text("""
-                UPDATE public.emergencies SET status = 'COMPLETED', resolved_at = NOW()
-                WHERE incident_code LIKE 'SIM-%' AND status NOT IN ('COMPLETED','CANCELLED')
-            """))
-            await db.commit()
-    except Exception:
-        pass
     return get_simulation_status()
 
 
 async def reset_demo_scenario() -> Dict[str, Any]:
-    """Explicitly stop simulation, complete active SIM-* missions, and release all ambulances to AVAILABLE."""
+    """Explicitly stop simulation, cancel in-flight SIM-* missions, and release all ambulances to AVAILABLE."""
+    global _sim_running, _sim_spawning, _sim_paused
     await stop_simulation()
+    _sim_running = False
+    _sim_spawning = False
+    _sim_paused = False
+    for t in list(_active_mission_tasks.values()):
+        if not t.done():
+            t.cancel()
+    _active_mission_tasks.clear()
     async with AsyncSessionLocal() as db:
         await db.execute(text("UPDATE public.emergencies SET status = 'COMPLETED', resolved_at = NOW() WHERE incident_code LIKE 'SIM-%' AND status NOT IN ('COMPLETED','CANCELLED')"))
         await db.execute(text("UPDATE public.dispatches SET status = 'COMPLETED' WHERE status = 'ACTIVE'"))
@@ -730,7 +719,7 @@ async def reset_demo_scenario() -> Dict[str, Any]:
 
 def get_simulation_status() -> Dict[str, Any]:
     return {
-        "running": _sim_running,
+        "running": _sim_spawning,
         "paused": _sim_paused,
         "active_missions": len([t for t in _active_mission_tasks.values() if not t.done()]),
         "spawned_count": _stats["spawned_count"],
