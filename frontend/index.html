@@ -23,33 +23,43 @@
     * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; }
     .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-    /* IERS Typography Scale */
-    body { font-size: 16px; font-weight: 400; line-height: 1.6; }
-    h1 { font-size: 56px; font-weight: 700; line-height: 1.1; letter-spacing: -0.025em; }
-    h2 { font-size: 36px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
-    h3 { font-size: 26px; font-weight: 600; line-height: 1.3; letter-spacing: -0.015em; }
-    h4 { font-size: 20px; font-weight: 600; line-height: 1.4; letter-spacing: -0.01em; }
+    /* IERS Typography Scale + 20 Practical Design Tips */
+    body { font-size: 16px; font-weight: 400; line-height: 1.6; font-variant-numeric: tabular-nums; }
+    h1 { font-size: 56px; font-weight: 700; line-height: 1.08; letter-spacing: -0.028em; }
+    h2 { font-size: 36px; font-weight: 700; line-height: 1.16; letter-spacing: -0.022em; }
+    h3 { font-size: 26px; font-weight: 600; line-height: 1.25; letter-spacing: -0.015em; }
+    h4 { font-size: 20px; font-weight: 600; line-height: 1.35; letter-spacing: -0.01em; }
     p, li, td, th, input, select, textarea { font-size: 16px; font-weight: 400; line-height: 1.6; }
     small, .text-small { font-size: 14px; font-weight: 400; line-height: 1.5; }
     .text-caption, label { font-size: 12px; font-weight: 500; line-height: 1.4; }
     button { font-size: 15px; font-weight: 600; line-height: 1.2; }
     .nav-item { font-size: 14px; font-weight: 600; line-height: 1.2; }
 
+    /* Layered Shadows & Cool Blue-Tinted Surfaces */
+    .bg-white.rounded-2xl {
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
+      border-color: #E2E8F0 !important;
+    }
+    .btn-hero-cta {
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2), 0 8px 24px rgba(184, 244, 50, 0.28);
+    }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-thumb { background: #D5D8DF; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
     .view-panel { animation: fadeSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes fadeSlide { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-    .nav-item.active { background: #FFFFFF; color: #1C1D21; font-weight: 600; }
-    .leaflet-container { background: #F8F9FA; }
+    .nav-item.active { background: #FFFFFF; color: #0F172A; font-weight: 600; box-shadow: 0 1px 3px rgba(15,23,42,0.12); }
+    .leaflet-container { background: #F8FAFC; }
     .custom-marker { background: transparent; border: none; }
   </style>
 </head>
-<body class="bg-[#F4F5F7] text-[#1C1D21] min-h-screen overflow-x-hidden selection:bg-[#B8F432] selection:text-[#1C1D21]">
+<body class="bg-[#F4F6FA] text-[#0F172A] min-h-screen overflow-x-hidden selection:bg-[#B8F432] selection:text-[#142405]">
 
   <!-- ======================================================================= -->
   <!-- POLISHED LANDING PAGE (Apple/Linear Precision, Live Spatial Telemetry)  -->
   <!-- ======================================================================= -->
-  <div id="landing-page" class="min-h-screen bg-[#1C1D21] text-white flex flex-col justify-between">
+  <div id="landing-page" class="min-h-screen bg-[#181B22] text-slate-100 flex flex-col justify-between">
     <!-- Top Bar -->
     <nav class="max-w-7xl w-full mx-auto px-8 py-6 flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -80,38 +90,38 @@
         <p class="text-white/70 max-w-2xl">
           IERS coordinates citizens, dispatchers, ambulance crews, and trauma centres on a unified metropolitan road graph—evaluating one-way exemptions, physical vehicle clearance, live hospital capacity, and two-leg emergency journeys in milliseconds.
         </p>
-        <div class="flex flex-wrap gap-3 pt-2">
-          <button onclick="openLoginScreen()" class="px-7 py-3.5 rounded-xl bg-[#B8F432] hover:bg-[#a6e61e] text-[#1C1D21] flex items-center gap-2 transition">
-            <span>Enter Role Portal</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
+        <div class="flex flex-wrap gap-4 pt-3">
+          <button onclick="openLoginScreen()" class="btn-hero-cta px-9 py-4 rounded-xl bg-[#B8F432] hover:bg-[#a6e61e] text-[#142405] text-[16px] flex items-center gap-2.5 transition">
+            <span>Open role portal</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
           </button>
-          <button onclick="openLoginScreen('citizen@iers.gov.in','citizen123')" class="px-7 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/15 transition">
-            Report an Emergency
+          <button onclick="openLoginScreen('citizen@iers.gov.in','citizen123')" class="px-8 py-4 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 border border-white/15 text-[16px] transition">
+            Report an emergency
           </button>
         </div>
       </div>
 
       <!-- Live Spatial Telemetry Card -->
-      <div class="lg:col-span-5 bg-[#24262C] rounded-[28px] border border-white/10 p-7 space-y-5">
+      <div class="lg:col-span-5 bg-[#20242E] rounded-[28px] border border-slate-700/60 p-7 space-y-5 shadow-2xl">
         <div class="flex items-center justify-between pb-4 border-b border-white/10">
-          <span class="text-caption font-mono text-white/60 uppercase">Live Network Topology</span>
+          <span class="text-caption font-mono text-slate-400">Live network topology · Hubballi</span>
           <span class="text-caption font-mono text-[#B8F432]">SRID 4326 · GiST</span>
         </div>
         <div class="grid grid-cols-2 gap-4">
-          <div class="p-4 rounded-2xl bg-[#1C1D21]">
-            <div class="text-caption text-white/50">Routable Road Segments</div>
-            <div id="land-edges" class="text-[28px] font-bold text-white mt-1 font-mono">40,394</div>
+          <div class="p-4 rounded-2xl bg-[#181B22] border border-white/5">
+            <div class="text-caption text-slate-400">Routable road segments</div>
+            <div id="land-edges" class="text-[28px] font-bold text-white mt-1 font-mono text-right">27,775</div>
           </div>
-          <div class="p-4 rounded-2xl bg-[#1C1D21]">
-            <div class="text-caption text-white/50">Graph Intersections</div>
-            <div id="land-nodes" class="text-[28px] font-bold text-[#B8F432] mt-1 font-mono">29,385</div>
+          <div class="p-4 rounded-2xl bg-[#181B22] border border-white/5">
+            <div class="text-caption text-slate-400">Graph intersections</div>
+            <div id="land-nodes" class="text-[28px] font-bold text-[#B8F432] mt-1 font-mono text-right">20,049</div>
           </div>
-          <div class="p-4 rounded-2xl bg-[#1C1D21]">
-            <div class="text-caption text-white/50">Connected Hospitals</div>
-            <div id="land-hosps" class="text-[28px] font-bold text-white mt-1 font-mono">91</div>
+          <div class="p-4 rounded-2xl bg-[#181B22] border border-white/5">
+            <div class="text-caption text-slate-400">Connected hospitals</div>
+            <div id="land-hosps" class="text-[28px] font-bold text-white mt-1 font-mono text-right">45</div>
           </div>
-          <div class="p-4 rounded-2xl bg-[#1C1D21]">
-            <div class="text-caption text-white/50">Distributed Fleet Units</div>
-            <div id="land-ambs" class="text-[28px] font-bold text-[#B3A1F8] mt-1 font-mono">28</div>
+          <div class="p-4 rounded-2xl bg-[#181B22] border border-white/5">
+            <div class="text-caption text-slate-400">Active fleet units</div>
+            <div id="land-ambs" class="text-[28px] font-bold text-[#B3A1F8] mt-1 font-mono text-right">14</div>
           </div>
         </div>
         <div class="space-y-2.5 pt-2 text-small text-white/75">
@@ -269,13 +279,14 @@
               <span id="live-sim-label">Auto-Sim: OFF</span>
             </button>
             <button id="btn-sim-pause" onclick="togglePauseSimulation()" class="hidden px-2 py-1.5 rounded-lg border border-[#E6E8EC] bg-white hover:bg-[#1C1D21] hover:text-white font-semibold transition">Pause</button>
-            <select id="sim-speed-select" onchange="changeSimSpeed(this.value)" title="Simulation Speed" class="px-2 py-1.5 rounded-lg border border-[#E6E8EC] bg-white font-mono font-semibold text-[#1C1D21]">
+            <select id="sim-speed-select" onchange="changeSimSpeed(this.value)" title="Simulation Speed" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white font-mono font-semibold text-[#0F172A]">
               <option value="1">1x</option>
               <option value="2" selected>2x</option>
               <option value="5">5x</option>
               <option value="10">10x</option>
             </select>
-            <button onclick="resetDemoScenario()" title="Reset active simulated missions and release all ambulances" class="px-2 py-1.5 rounded-lg border border-[#E6E8EC] bg-white hover:bg-[#EF4444] hover:text-white hover:border-[#EF4444] font-semibold transition">Reset</button>
+            <span class="h-5 w-px bg-slate-300 mx-1.5"></span>
+            <button onclick="resetDemoScenario()" title="Reset active simulated missions and release all ambulances" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-[#EF4444] hover:text-white hover:border-[#EF4444] text-slate-600 font-semibold transition">Reset fleet</button>
           </div>
         </div>
       </header>
