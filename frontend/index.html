@@ -1716,14 +1716,54 @@
           const isLeg2 = a.active_leg === 'LEG_2';
           const coords = a.active_route_json.coordinates;
           const totalKm = a.active_route_json.total_distance_km || 0;
-          document.getElementById('op-map-title').textContent = isLeg2 ? `LEG 2: Fastest Route to ${a.hospital_name}` : `LEG 1: Fastest Route to Emergency`;
+          const etaMin = Math.max(1, Math.round((a.eta_seconds || 60) / 60));
+          const streets = (a.active_route_json.road_names || []).filter(Boolean);
+          const nextRoad = streets[0] || 'Hubballi Arterial Road';
+          const destLabel = isLeg2 ? (a.hospital_name || 'Assigned Hospital') : (a.incident_type || 'Emergency Scene');
+          document.getElementById('op-map-title').textContent = isLeg2 ? `LEG 2: Google-Style Navigation to ${destLabel}` : `LEG 1: Google-Style Navigation to Emergency`;
+
+          // Inject Google Navigation Turn-by-Turn Top Banner & Bottom ETA HUD inside #op-map
+          const opMapEl = document.getElementById('op-map');
+          if (opMapEl) {
+            opMapEl.style.position = 'relative';
+            opMapEl.querySelectorAll('.gnav-hud').forEach(el => el.remove());
+            const topHud = document.createElement('div');
+            topHud.className = 'gnav-hud';
+            topHud.style.cssText = 'position:absolute;top:12px;left:54px;right:12px;z-index:1000;background:#0F766E;color:#FFFFFF;border-radius:14px;padding:10px 14px;box-shadow:0 6px 20px rgba(0,0,0,0.28);display:flex;align-items:center;gap:12px;pointer-events:none;';
+            topHud.innerHTML = `
+              <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.16);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              </div>
+              <div style="min-width:0;flex:1;">
+                <div style="font-size:11px;opacity:0.85;font-weight:600;letter-spacing:0.03em;">CONTINUE ON</div>
+                <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nextRoad}</div>
+                <div style="font-size:11px;opacity:0.85;">Toward ${destLabel}</div>
+              </div>
+            `;
+            const botHud = document.createElement('div');
+            botHud.className = 'gnav-hud';
+            botHud.style.cssText = 'position:absolute;bottom:14px;left:14px;right:14px;z-index:1000;background:#FFFFFF;border:1.5px solid #E2E8F0;border-radius:14px;padding:10px 16px;box-shadow:0 6px 20px rgba(15,23,42,0.18);display:flex;align-items:center;justify-content:space-between;pointer-events:none;';
+            botHud.innerHTML = `
+              <div>
+                <div style="font-size:18px;font-weight:800;color:#059669;line-height:1.1;">${etaMin} min <span style="font-size:13px;font-weight:600;color:#64748B;">(${totalKm} km)</span></div>
+                <div style="font-size:11px;color:#475569;margin-top:2px;">Fastest constraint-checked route · ${isLeg2 ? 'Leg 2 (Hospital)' : 'Leg 1 (Emergency)'}</div>
+              </div>
+              <span style="padding:5px 10px;border-radius:999px;background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:700;border:1px solid #BFDBFE;">LIVE NAV</span>
+            `;
+            opMapEl.appendChild(topHud);
+            opMapEl.appendChild(botHud);
+          }
+
           if (a.status === 'EN_ROUTE_TO_EMERGENCY' || a.status === 'EN_ROUTE_TO_HOSPITAL') {
             startOperatorNavAnimation(coords, totalKm, isLeg2);
           } else {
             if (opNavAnimId) cancelAnimationFrame(opNavAnimId);
-            const poly = L.polyline(coords, { color: isLeg2 ? '#16A34A' : '#1C1D21', weight: 5, opacity: 0.95 }).addTo(opLayer);
-            opMap.fitBounds(poly.getBounds(), { padding: [40, 40] });
-            document.getElementById('op-map-eta').textContent = `ETA ${a.eta_seconds || 0}s · ${totalKm} km`;
+            const outerC = isLeg2 ? '#047857' : '#1D4ED8';
+            const innerC = isLeg2 ? '#10B981' : '#3B82F6';
+            L.polyline(coords, { color: outerC, weight: 10, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(opLayer);
+            const poly = L.polyline(coords, { color: innerC, weight: 6, opacity: 1.0, lineCap: 'round', lineJoin: 'round' }).addTo(opLayer);
+            opMap.fitBounds(poly.getBounds(), { padding: [70, 70] });
+            document.getElementById('op-map-eta').textContent = `${etaMin} min · ${totalKm} km`;
           }
         } else {
           opMap.setView([a.latitude, a.longitude], 14);
